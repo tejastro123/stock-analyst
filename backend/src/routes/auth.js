@@ -14,13 +14,13 @@ const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   username: Joi.string().alphanum().min(3).max(30).required(),
   password: Joi.string().min(8).required(),
-  full_name: Joi.string().max(255).optional(),
+  full_name: Joi.string().max(255).allow('', null).optional(),
 });
 
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
-});
+}).options({ allowUnknown: true }); // frontend form sends all fields
 
 // ── POST /api/auth/register ──────────────────────────────────────────────────
 router.post('/register', validate(registerSchema), async (req, res) => {
