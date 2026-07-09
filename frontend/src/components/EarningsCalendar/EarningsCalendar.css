@@ -1,0 +1,39 @@
+/* ── Earnings Calendar Styles ──────────────────────────────── */
+
+.earnings-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+}
+
+.earnings-root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.earnings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-primary);
+}
+.earnings-item:last-child {
+  border-bottom: none;
+}
+
+.earnings-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.earnings-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}

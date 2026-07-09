@@ -16,3 +16,53 @@ export const userApi = {
   getSettings: () => api.get('/users/settings'),
   updateSettings: (data) => api.patch('/users/settings', data),
 };
+
+export const marketApi = {
+  // Quotes
+  getQuote: (symbol, market = 'US') =>
+    api.get(`/market/quote/${symbol}?market=${market}`),
+  getBatchQuotes: (symbols, market = 'US') =>
+    api.post('/market/quotes/batch', { symbols, market }),
+
+  // OHLCV
+  getOHLCV: (symbol, { market = 'US', period = '6mo', interval = '1d' } = {}) =>
+    api.get(`/market/ohlcv/${symbol}?market=${market}&period=${period}&interval=${interval}`),
+
+  // Fundamentals
+  getFundamentals: (symbol, market = 'US') =>
+    api.get(`/market/fundamentals/${symbol}?market=${market}`),
+
+  // Options
+  getOptions: (symbol, market = 'US', expiry = null) => {
+    const q = expiry ? `?market=${market}&expiry=${expiry}` : `?market=${market}`;
+    return api.get(`/market/options/${symbol}${q}`);
+  },
+
+  // Screener
+  runScreener: (filters) => api.post('/market/screener', filters),
+  getUniverse: (market = 'US') => api.get(`/market/universe?market=${market}`),
+
+  // Sector heatmap
+  getSectorHeatmap: () => api.get('/market/sector/heatmap'),
+
+  // Market Metrics & Breadth
+  getEarnings: () => api.get('/market/metrics/earnings'),
+  getBreadth: () => api.get('/market/metrics/breadth'),
+  getMovers: () => api.get('/market/metrics/movers'),
+
+  // Health
+  pyHealth: () => api.get('/market/py-health'),
+};
+
+export const portfolioApi = {
+  getPortfolio: () => api.get('/portfolio'),
+  addPosition: (data) => api.post('/portfolio/position', data),
+  updatePosition: (id, data) => api.put(`/portfolio/position/${id}`, data),
+  deletePosition: (id) => api.delete(`/portfolio/position/${id}`),
+};
+
+export const reportsApi = {
+  exportPdf: (data) => api.post('/reports/pdf', data, { responseType: 'blob' }),
+};
+
+

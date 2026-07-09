@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import TradingViewTickerTape from '../TradingViewTickerTape/TradingViewTickerTape';
 import './Terminal.css';
 
 const NAV_ITEMS = [
@@ -40,16 +41,6 @@ function TerminalLayout() {
             <span className="topbar-logo-q">Q</span>
             <span className="topbar-logo-text">UANTDESK</span>
           </div>
-          <div className="topbar-ticker-strip" id="ticker-strip">
-            <span className="ticker-item"><span className="ticker-sym">AAPL</span><span className="price-up">213.42 ▲0.84%</span></span>
-            <span className="ticker-item"><span className="ticker-sym">TSLA</span><span className="price-up">189.21 ▲1.23%</span></span>
-            <span className="ticker-item"><span className="ticker-sym">NVDA</span><span className="price-down">121.55 ▼0.42%</span></span>
-            <span className="ticker-item"><span className="ticker-sym">SPY</span><span className="price-up">545.88 ▲0.31%</span></span>
-            <span className="ticker-item"><span className="ticker-sym">BTC-USD</span><span className="price-up">67,440 ▲2.14%</span></span>
-            <span className="ticker-item"><span className="ticker-sym">GOOGL</span><span className="price-down">178.34 ▼0.18%</span></span>
-            <span className="ticker-item"><span className="ticker-sym">MSFT</span><span className="price-up">421.65 ▲0.55%</span></span>
-            <span className="ticker-item"><span className="ticker-sym">AMZN</span><span className="price-up">195.12 ▲0.72%</span></span>
-          </div>
         </div>
 
         <div className="topbar-right">
@@ -72,6 +63,11 @@ function TerminalLayout() {
           </div>
         </div>
       </header>
+
+      {/* ── TradingView Real-Time Ticker Tape ── */}
+      <div style={{ borderBottom: '1px solid var(--border-primary)', flexShrink: 0 }}>
+        <TradingViewTickerTape />
+      </div>
 
       <div className="terminal-body">
         {/* ── Left Sidebar Navigation ── */}

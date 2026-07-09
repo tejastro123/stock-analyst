@@ -11,14 +11,14 @@ const { authenticate } = require('../middleware/auth');
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 const registerSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
   username: Joi.string().alphanum().min(3).max(30).required(),
   password: Joi.string().min(8).required(),
   full_name: Joi.string().max(255).allow('', null).optional(),
 });
 
 const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
   password: Joi.string().required(),
 }).options({ allowUnknown: true }); // frontend form sends all fields
 

@@ -5,7 +5,14 @@ import useAuthStore from './store/authStore';
 import LoginPage from './pages/Auth/LoginPage';
 import TerminalLayout from './components/Terminal/TerminalLayout';
 import DashboardPage from './pages/Dashboard/DashboardPage';
+import ScreenerPage from './pages/Screener/ScreenerPage';
+import ChartsPage from './pages/Charts/ChartsPage';
+import CryptoPage from './pages/Crypto/CryptoPage';
+import ForexPage from './pages/Forex/ForexPage';
+import PortfolioPage from './pages/Portfolio/PortfolioPage';
+import OptionsPage from './pages/Options/OptionsPage';
 import PlaceholderPage from './components/PlaceholderPage';
+import ResearchPage from './pages/Research/ResearchPage';
 
 function PrivateRoute({ children }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -23,6 +30,15 @@ function PrivateRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
+// Prevent authenticated users from visiting /login
+function PublicRoute({ children }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+
+  if (isLoading) return null; // wait for init
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+}
+
 function App() {
   const init = useAuthStore((s) => s.init);
 
@@ -34,7 +50,7 @@ function App() {
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         {/* Auth */}
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
 
         {/* Terminal — all protected */}
         <Route path="/" element={
@@ -44,16 +60,16 @@ function App() {
         }>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard"  element={<DashboardPage />} />
-          <Route path="screener"   element={<PlaceholderPage title="Stock Screener"         code="SCRN" />} />
-          <Route path="portfolio"  element={<PlaceholderPage title="Portfolio Tracker"       code="PORT" />} />
-          <Route path="options"    element={<PlaceholderPage title="Options Chain & Greeks"  code="OPT" />} />
-          <Route path="charts"     element={<PlaceholderPage title="Advanced Charts"         code="CHRT" />} />
-          <Route path="crypto"     element={<PlaceholderPage title="Crypto Dashboard"        code="CRYP" />} />
-          <Route path="forex"      element={<PlaceholderPage title="Forex Markets"           code="FX" />} />
+          <Route path="screener"   element={<ScreenerPage />} />
+          <Route path="portfolio"  element={<PortfolioPage />} />
+          <Route path="options"    element={<OptionsPage />} />
+          <Route path="charts"     element={<ChartsPage />} />
+          <Route path="crypto"     element={<CryptoPage />} />
+          <Route path="forex"      element={<ForexPage />} />
           <Route path="macro"      element={<PlaceholderPage title="Global Macro & FRED"     code="MCRO" />} />
           <Route path="news"       element={<PlaceholderPage title="News & Sentiment"        code="NEWS" />} />
           <Route path="alerts"     element={<PlaceholderPage title="Alert Engine"            code="ALRT" />} />
-          <Route path="research"   element={<PlaceholderPage title="AI Research Reports"     code="RSCH" />} />
+          <Route path="research"   element={<ResearchPage />} />
           <Route path="analytics"  element={<PlaceholderPage title="Risk Analytics"          code="RISK" />} />
           <Route path="backtester" element={<PlaceholderPage title="Strategy Backtester"     code="BKTS" />} />
           <Route path="settings"   element={<PlaceholderPage title="Settings"                code="SETT" />} />

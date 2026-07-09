@@ -8,6 +8,10 @@ const rateLimit = require('express-rate-limit');
 const pool = require('./db/pool');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const marketRoutes = require('./routes/market');
+const portfolioRoutes = require('./routes/portfolio');
+const aiRoutes = require('./routes/ai');
+const reportsRoutes = require('./routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -56,6 +60,10 @@ app.get('/health', async (req, res) => {
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/market', marketRoutes);
+app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // ── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {

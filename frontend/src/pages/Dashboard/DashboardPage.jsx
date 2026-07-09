@@ -1,105 +1,257 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import { marketApi, userApi } from '../../api';
+import SectorHeatmap from '../../components/SectorHeatmap/SectorHeatmap';
+import MarketBreadth from '../../components/MarketBreadth/MarketBreadth';
+import EarningsCalendar from '../../components/EarningsCalendar/EarningsCalendar';
+import TradingViewMovers from '../../components/TradingViewMovers/TradingViewMovers';
+import ReportExporter from '../../components/ReportExporter/ReportExporter';
 import './Dashboard.css';
 
-const MARKET_SUMMARY = [
-  { label: 'S&P 500',   value: '5,485.21', change: '+0.31%', up: true },
-  { label: 'NASDAQ',    value: '17,726.49', change: '+0.44%', up: true },
-  { label: 'DOW',       value: '38,997.66', change: '+0.20%', up: true },
-  { label: 'VIX',       value: '13.42',    change: '-2.18%', up: false },
-  { label: 'DXY',       value: '104.31',   change: '-0.08%', up: false },
-  { label: '10Y YIELD', value: '4.28%',    change: '+0.03', up: true },
-  { label: 'GOLD',      value: '2,328.60', change: '+0.52%', up: true },
-  { label: 'OIL',       value: '78.14',    change: '-0.64%', up: false },
-];
+const DEFAULT_SYMBOLS = ['AAPL', 'TSLA', 'NVDA', 'GOOGL', 'MSFT', 'AMZN', 'META'];
 
-const WATCHLIST = [
-  { sym: 'AAPL',  name: 'Apple Inc.',          price: '213.42', chg: '+1.77',  pct: '+0.84%', up: true,  vol: '52.3M' },
-  { sym: 'TSLA',  name: 'Tesla Inc.',           price: '189.21', chg: '+2.30',  pct: '+1.23%', up: true,  vol: '81.4M' },
-  { sym: 'NVDA',  name: 'NVIDIA Corp.',         price: '121.55', chg: '-0.51',  pct: '-0.42%', up: false, vol: '203M' },
-  { sym: 'GOOGL', name: 'Alphabet Inc.',        price: '178.34', chg: '-0.32',  pct: '-0.18%', up: false, vol: '21.8M' },
-  { sym: 'MSFT',  name: 'Microsoft Corp.',      price: '421.65', chg: '+2.30',  pct: '+0.55%', up: true,  vol: '19.4M' },
-  { sym: 'AMZN',  name: 'Amazon.com Inc.',      price: '195.12', chg: '+1.40',  pct: '+0.72%', up: true,  vol: '32.1M' },
-  { sym: 'META',  name: 'Meta Platforms Inc.',  price: '497.23', chg: '-3.12',  pct: '-0.62%', up: false, vol: '14.9M' },
-  { sym: 'NFLX',  name: 'Netflix Inc.',         price: '641.88', chg: '+5.44',  pct: '+0.86%', up: true,  vol: '6.2M' },
-];
+const MARKET_BAR_SYMBOLS = ['SPY', 'QQQ', 'IWM', 'DIA', 'GLD', 'USO', 'TLT'];
 
-const TOP_MOVERS = [
-  { sym: 'SMCI',   pct: '+18.4%', reason: 'Earnings Beat', up: true },
-  { sym: 'MRNA',   pct: '-12.1%', reason: 'Trial Failure', up: false },
-  { sym: 'PLTR',   pct: '+8.7%',  reason: 'Gov Contract',  up: true },
-  { sym: 'COIN',   pct: '+6.2%',  reason: 'BTC Rally',     up: true },
-  { sym: 'RIVN',   pct: '-7.3%',  reason: 'Downgrade',     up: false },
-];
+function fmt(v, type = 'num') {
+  if (v === null || v === undefined) return '—';
+  if (type === 'pct') return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+  if (type === 'mc') {
+    if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
+    if (v >= 1e9)  return `$${(v / 1e9).toFixed(1)}B`;
+    return `$${(v / 1e6).toFixed(0)}M`;
+  }
+  if (type === 'vol') {
+    if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+    if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+    return `${v}`;
+  }
+  if (type === 'price') return `$${Number(v).toFixed(2)}`;
+  return Number(v).toFixed(2);
+}
 
 function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+  const [watchlist, setWatchlist] = useState([]);
+  const [marketBar, setMarketBar] = useState([]);
+  const [wlLoading, setWlLoading] = useState(true);
+  const [mbLoading, setMbLoading] = useState(true);
+  const [newSymbol, setNewSymbol] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Fetch Market Bar quotes
+  useEffect(() => {
+    marketApi.getBatchQuotes(MARKET_BAR_SYMBOLS)
+      .then(res => {
+        const quotes = res.data.quotes || {};
+        const formatted = MARKET_BAR_SYMBOLS.map(sym => {
+          const q = quotes[sym] || {};
+          return {
+            label: sym,
+            value: q.price ? fmt(q.price) : '—',
+            change: q.change_pct ? fmt(q.change_pct, 'pct') : '—',
+            up: (q.change_pct || 0) >= 0,
+          };
+        });
+        setMarketBar(formatted);
+      })
+      .catch(() => {})
+      .finally(() => setMbLoading(false));
+  }, []);
+
+
+
+  // Load user watchlists and fetch quote data
+  const loadWatchlistData = async () => {
+    setWlLoading(true);
+    try {
+      let syms = DEFAULT_SYMBOLS;
+      try {
+        const wlRes = await userApi.getWatchlists();
+        const activeWl = wlRes.data[0];
+        if (activeWl && activeWl.symbols && activeWl.symbols.length > 0) {
+          syms = activeWl.symbols.map(s => s.symbol);
+        }
+      } catch (err) {
+        console.warn('Watchlist fetch failed, falling back to defaults', err);
+      }
+
+      const quoteRes = await marketApi.getBatchQuotes(syms);
+      const quotes = quoteRes.data.quotes || {};
+      const items = syms.map(sym => {
+        const q = quotes[sym.toUpperCase()] || {};
+        return {
+          sym: sym.toUpperCase(),
+          name: q.name || sym,
+          price: q.price ? fmt(q.price, 'price') : '—',
+          chg: q.change ? fmt(q.change) : '—',
+          pct: q.change_pct ? fmt(q.change_pct, 'pct') : '—',
+          up: (q.change_pct || 0) >= 0,
+          vol: q.volume ? fmt(q.volume, 'vol') : '—',
+        };
+      });
+      setWatchlist(items);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setWlLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadWatchlistData();
+  }, []);
+
+  const handleAddSymbol = async (e) => {
+    e.preventDefault();
+    if (!newSymbol) return;
+    try {
+      const wlRes = await userApi.getWatchlists();
+      let activeWl = wlRes.data[0];
+      if (!activeWl) {
+        const createRes = await userApi.createWatchlist('Default');
+        activeWl = createRes.data;
+      }
+      await userApi.addSymbol(activeWl.id, newSymbol.toUpperCase(), 'US');
+      setNewSymbol('');
+      setShowAddForm(false);
+      loadWatchlistData();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to add symbol');
+    }
+  };
 
   return (
     <div className="dashboard-root" id="dashboard">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px 4px 16px', flexShrink: 0 }}>
+        <span className="font-mono text-xs fw-600 text-secondary">QUANTDESK MARKET MONITOR</span>
+        <div className="flex gap-2">
+          <ReportExporter pageName="dashboard" data={{ watchlist, marketBar }} label="EXPORT DASHBOARD PDF" />
+          <ReportExporter pageName="combined" data={{ watchlist, marketBar }} label="EXPORT COMBINED DECK" combined={true} />
+        </div>
+      </div>
       {/* ── Market Summary Bar ── */}
       <div className="market-bar" id="market-bar">
-        {MARKET_SUMMARY.map((m) => (
-          <div key={m.label} className="market-bar-item">
-            <div className="market-bar-label font-mono text-xs text-muted">{m.label}</div>
-            <div className={`market-bar-value font-mono text-sm fw-600 ${m.up ? 'price-up' : 'price-down'}`}>
-              {m.value}
+        {mbLoading ? (
+          <span className="font-mono text-xs text-muted" style={{ padding: 10 }}>Loading market data...</span>
+        ) : (
+          marketBar.map((m) => (
+            <div key={m.label} className="market-bar-item">
+              <div className="market-bar-label font-mono text-xs text-muted">{m.label}</div>
+              <div className={`market-bar-value font-mono text-sm fw-600 ${m.up ? 'price-up' : 'price-down'}`}>
+                {m.value}
+              </div>
+              <div className={`market-bar-change font-mono text-xs ${m.up ? 'price-up' : 'price-down'}`}>
+                {m.change}
+              </div>
             </div>
-            <div className={`market-bar-change font-mono text-xs ${m.up ? 'price-up' : 'price-down'}`}>
-              {m.change}
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* ── Main Grid ── */}
       <div className="dashboard-grid">
-        {/* ── Watchlist Panel ── */}
-        <div className="panel dash-watchlist" id="panel-watchlist">
-          <div className="panel-header">
-            <span className="panel-title">My Watchlist</span>
-            <div className="flex gap-2">
-              <span className="badge badge-green">LIVE</span>
-              <button id="btn-add-symbol" className="btn btn-ghost btn-sm">+ ADD</button>
+        {/* ── Left Column (Watchlist + Heatmap + Breadth) ── */}
+        <div className="dash-left" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', overflowY: 'auto' }}>
+          {/* Watchlist Panel */}
+          <div className="panel dash-watchlist" id="panel-watchlist" style={{ flexShrink: 0, minHeight: '320px' }}>
+            <div className="panel-header">
+              <span className="panel-title">My Watchlist</span>
+              <div className="flex gap-2">
+                <span className="badge badge-green">LIVE</span>
+                <button id="btn-add-symbol" className="btn btn-ghost btn-sm" onClick={() => setShowAddForm(!showAddForm)}>
+                  {showAddForm ? 'CANCEL' : '+ ADD'}
+                </button>
+              </div>
+            </div>
+
+            {showAddForm && (
+              <form onSubmit={handleAddSymbol} className="watchlist-add-form" style={{ padding: 12, display: 'flex', gap: 8, borderBottom: '1px solid var(--border-primary)' }}>
+                <input
+                  id="input-wl-symbol"
+                  className="form-input"
+                  style={{ width: 120, height: 28, fontSize: 12 }}
+                  placeholder="Ticker (e.g. TSLA)"
+                  value={newSymbol}
+                  onChange={e => setNewSymbol(e.target.value.toUpperCase())}
+                  autoFocus
+                />
+                <button type="submit" className="btn btn-primary btn-sm">ADD</button>
+              </form>
+            )}
+
+            <div className="watchlist-table-wrap">
+              {wlLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120 }}>
+                  <span className="spinner" style={{ width: 20, height: 20 }} />
+                </div>
+              ) : (
+                <table className="watchlist-table">
+                  <thead>
+                    <tr>
+                      <th>SYMBOL</th>
+                      <th>PRICE</th>
+                      <th>CHG</th>
+                      <th>CHG%</th>
+                      <th>VOLUME</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {watchlist.map((s) => (
+                      <tr key={s.sym} className="watchlist-row" id={`row-${s.sym.toLowerCase()}`}>
+                        <td>
+                          <div className="wl-sym">{s.sym}</div>
+                          <div className="wl-name">{s.name}</div>
+                        </td>
+                        <td className="font-mono fw-600">{s.price}</td>
+                        <td className={`font-mono ${s.up ? 'price-up' : 'price-down'}`}>{s.chg}</td>
+                        <td>
+                          <span className={`badge ${s.up ? 'badge-green' : 'badge-red'} font-mono`}>{s.pct}</span>
+                        </td>
+                        <td className="font-mono text-secondary">{s.vol}</td>
+                        <td>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => navigate(`/charts?sym=${s.sym}`)}
+                          >
+                            CHART
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
-          <div className="watchlist-table-wrap">
-            <table className="watchlist-table">
-              <thead>
-                <tr>
-                  <th>SYMBOL</th>
-                  <th>PRICE</th>
-                  <th>CHG</th>
-                  <th>CHG%</th>
-                  <th>VOLUME</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {WATCHLIST.map((s) => (
-                  <tr key={s.sym} className="watchlist-row" id={`row-${s.sym.toLowerCase()}`}>
-                    <td>
-                      <div className="wl-sym">{s.sym}</div>
-                      <div className="wl-name">{s.name}</div>
-                    </td>
-                    <td className="font-mono fw-600">{s.price}</td>
-                    <td className={`font-mono ${s.up ? 'price-up' : 'price-down'}`}>{s.chg}</td>
-                    <td>
-                      <span className={`badge ${s.up ? 'badge-green' : 'badge-red'}`}>{s.pct}</span>
-                    </td>
-                    <td className="font-mono text-secondary">{s.vol}</td>
-                    <td>
-                      <button className="btn btn-ghost btn-sm">CHART</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* Sector Heatmap */}
+          <div className="panel" id="panel-heatmap" style={{ flexShrink: 0 }}>
+            <div className="panel-header">
+              <span className="panel-title">Sector Heatmap</span>
+              <span className="badge badge-amber font-mono">ETFs</span>
+            </div>
+            <div className="panel-body">
+              <SectorHeatmap />
+            </div>
+          </div>
+
+          {/* Market Breadth Panel */}
+          <div className="panel" id="panel-breadth" style={{ flexShrink: 0 }}>
+            <div className="panel-header">
+              <span className="panel-title">Market Breadth</span>
+              <span className="badge badge-blue font-mono">BREADTH</span>
+            </div>
+            <div className="panel-body">
+              <MarketBreadth />
+            </div>
           </div>
         </div>
 
         {/* ── Right Column ── */}
         <div className="dash-right">
+
           {/* Top Movers */}
           <div className="panel" id="panel-movers">
             <div className="panel-header">
@@ -107,15 +259,18 @@ function DashboardPage() {
               <span className="badge badge-amber">TODAY</span>
             </div>
             <div className="panel-body">
-              {TOP_MOVERS.map((m) => (
-                <div key={m.sym} className="mover-row">
-                  <div>
-                    <div className="font-mono fw-600 text-sm">{m.sym}</div>
-                    <div className="text-xs text-muted">{m.reason}</div>
-                  </div>
-                  <span className={`badge text-base ${m.up ? 'badge-green' : 'badge-red'}`}>{m.pct}</span>
-                </div>
-              ))}
+              <TradingViewMovers />
+            </div>
+          </div>
+
+          {/* Earnings Calendar */}
+          <div className="panel" id="panel-earnings">
+            <div className="panel-header">
+              <span className="panel-title">Upcoming Earnings</span>
+              <span className="badge badge-purple font-mono">CALENDAR</span>
+            </div>
+            <div className="panel-body">
+              <EarningsCalendar />
             </div>
           </div>
 
@@ -140,34 +295,7 @@ function DashboardPage() {
                     Fed minutes indicate no rate cuts until Q4. Bond yields stable, DXY weakening slightly.
                   </span>
                 </div>
-                <div className="ai-pulse-line">
-                  <span className="text-red font-mono text-xs">►</span>
-                  <span className="text-sm text-secondary">
-                    Watch MRNA — Phase 3 trial data disappointing, biotech sector under pressure.
-                  </span>
-                </div>
-                <button id="btn-full-analysis" className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}>
-                  FULL ANALYSIS →
-                </button>
               </div>
-            </div>
-          </div>
-
-          {/* Portfolio Snapshot */}
-          <div className="panel" id="panel-portfolio-snap">
-            <div className="panel-header">
-              <span className="panel-title">Portfolio Snapshot</span>
-              <button id="btn-view-portfolio" className="btn btn-ghost btn-sm">VIEW →</button>
-            </div>
-            <div className="panel-body">
-              <div className="port-snap-total">
-                <div className="text-muted text-xs font-mono">TOTAL VALUE</div>
-                <div className="font-mono text-2xl fw-700 text-primary">$0.00</div>
-                <div className="font-mono text-sm text-muted">— positions. Add your first trade.</div>
-              </div>
-              <button id="btn-add-position" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
-                + ADD POSITION
-              </button>
             </div>
           </div>
         </div>

@@ -1,0 +1,192 @@
+/* ── Charts Page ──────────────────────────────────────────── */
+
+.charts-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+/* ── Top Bar ──────────────────────────────────────────────── */
+.charts-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* Symbol search */
+.sym-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.sym-market {
+  width: 70px !important;
+  padding: 5px 6px !important;
+  font-size: 11px !important;
+  height: 28px;
+}
+
+.sym-input {
+  width: 90px !important;
+  padding: 5px 8px !important;
+  font-size: 12px !important;
+  height: 28px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* Quote strip */
+.charts-quote-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+/* Controls group */
+.charts-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+/* Timeframe buttons */
+.tf-group {
+  display: flex;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.tf-btn {
+  border: none !important;
+  border-radius: 0 !important;
+  border-right: 1px solid var(--border-primary) !important;
+  font-size: 10px !important;
+  padding: 4px 9px !important;
+  letter-spacing: 0.04em;
+}
+.tf-btn:last-child { border-right: none !important; }
+
+.tf-btn.active {
+  background: var(--accent-glow) !important;
+  color: var(--accent-primary) !important;
+}
+
+/* Indicator toggles */
+.indicator-toggles {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.ind-active {
+  border-color: var(--ind-color, var(--accent-primary)) !important;
+  color: var(--ind-color, var(--accent-primary)) !important;
+  background: color-mix(in srgb, var(--ind-color, var(--accent-primary)) 10%, transparent) !important;
+}
+
+/* ── Popular chips ────────────────────────────────────────── */
+.popular-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px var(--space-3);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.popular-strip::-webkit-scrollbar { height: 0; }
+
+.popular-chip {
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.popular-chip:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent-primary);
+  background: var(--accent-glow-lg);
+}
+
+.popular-chip.active {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: var(--accent-glow);
+}
+
+/* ── Chart canvas area ────────────────────────────────────── */
+.chart-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  background: rgba(10,10,15,0.7);
+  z-index: 10;
+}
+
+.chart-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--red-dim);
+  border: 1px solid rgba(255,68,102,0.3);
+  color: var(--red);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  z-index: 10;
+}
+
+/* ── Stats bar ────────────────────────────────────────────── */
+.chart-statsbar {
+  height: 24px;
+  min-height: 24px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  flex-shrink: 0;
+  overflow: hidden;
+}

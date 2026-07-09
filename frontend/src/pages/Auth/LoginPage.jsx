@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import './Auth.css';
 
@@ -8,6 +9,7 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
 
@@ -26,6 +28,7 @@ function LoginPage() {
       } else {
         await register(form);
       }
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       const msg = err.response?.data?.error || err.response?.data?.details?.join(', ') || 'Something went wrong';
       setError(msg);
