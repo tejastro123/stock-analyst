@@ -16,7 +16,8 @@ function TradingViewChart({ symbol, market }) {
   let tvSymbol = symbol;
   if (market === "NSE" || market === "BSE" || symbol.endsWith(".NS") || symbol.endsWith(".BO")) {
     const clean = symbol.replace('.NS', '').replace('.BO', '');
-    tvSymbol = `${market === "BSE" ? "BSE" : "NSE"}:${clean}`;
+    const isIndex = clean.toUpperCase() === 'NIFTY' || clean.toUpperCase() === 'NSEI' || clean.toUpperCase() === 'CNX100';
+    tvSymbol = `${isIndex ? 'NSE' : 'BSE'}:${clean}`;
   } else {
     if (!symbol.includes(':')) {
       tvSymbol = symbol;
@@ -59,6 +60,16 @@ function ChartsPage() {
   const [inputSym, setInputSym] = useState((qSym || (activeMarket === 'US' ? 'AAPL' : 'RELIANCE')).toUpperCase());
   const [market, setMarket] = useState((qMkt || activeMarket).toUpperCase());
   const [quote, setQuote] = useState(null);
+
+  const isInd = market === 'NSE' || market === 'BSE';
+  const fmtVal = (val, type = 'price') => {
+    if (val === null || val === undefined) return '—';
+    if (type === 'price') {
+      const currency = isInd ? 'INR' : 'USD';
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(val);
+    }
+    return val;
+  };
 
   useEffect(() => {
     const qSymInner = queryParams.get('sym');
@@ -125,13 +136,13 @@ function ChartsPage() {
           <div className="charts-quote-strip" id="quote-strip">
             <span className="font-mono fw-700 text-lg">{symbol}</span>
             <span className={`font-mono fw-700 text-xl ${up ? 'price-up' : 'price-down'}`}>
-              ${quote.price?.toFixed(2)}
+              {fmtVal(quote.price)}
             </span>
             <span className={`badge ${up ? 'badge-green' : 'badge-red'} font-mono`}>
               {up ? '+' : ''}{quote.change?.toFixed(2)} ({up ? '+' : ''}{quote.change_pct?.toFixed(2)}%)
             </span>
             <span className="text-muted font-mono text-xs">
-              H: {quote.day_high?.toFixed(2)} · L: {quote.day_low?.toFixed(2)} · Vol: {
+              H: {fmtVal(quote.day_high)} · L: {fmtVal(quote.day_low)} · Vol: {
                 quote.volume >= 1e6 ? `${(quote.volume/1e6).toFixed(1)}M` : `${(quote.volume/1e3).toFixed(0)}K`
               }
             </span>
@@ -188,22 +199,26 @@ function ChartsPage() {
               <div className="panel-body font-mono text-xs" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span className="text-muted">Prev Close:</span>
-                  <span>${quote.prev_close?.toFixed(2) || '—'}</span>
+                  <span>{fmtVal(quote.prev_close)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span className="text-muted">Open:</span>
-                  <span>${quote.open?.toFixed(2) || '—'}</span>
+                  <span>{fmtVal(quote.open)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span className="text-muted">52W Range:</span>
                   <span style={{ fontSize: '10px' }}>
-                    ${quote.week52_low?.toFixed(2) || '—'} - ${quote.week52_high?.toFixed(2) || '—'}
+                    {fmtVal(quote.week52_low)} - {fmtVal(quote.week52_high)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span className="text-muted">Market Cap:</span>
                   <span>
-                    {quote.market_cap ? (quote.market_cap >= 1e12 ? `$${(quote.market_cap/1e12).toFixed(2)}T` : quote.market_cap >= 1e9 ? `$${(quote.market_cap/1e9).toFixed(1)}B` : `$${(quote.market_cap/1e6).toFixed(0)}M`) : '—'}
+                    {quote.market_cap ? (
+                      isInd ? 
+                      `₹${(quote.market_cap/1e7).toFixed(1)} Cr` : 
+                      (quote.market_cap >= 1e12 ? `$${(quote.market_cap/1e12).toFixed(2)}T` : quote.market_cap >= 1e9 ? `$${(quote.market_cap/1e9).toFixed(1)}B` : `$${(quote.market_cap/1e6).toFixed(0)}M`)
+                    ) : '—'}
                   </span>
                 </div>
               </div>

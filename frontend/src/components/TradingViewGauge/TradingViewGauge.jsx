@@ -5,7 +5,8 @@ function TradingViewGauge({ symbol, market }) {
   let tvSymbol = symbol;
   if (market === "NSE" || market === "BSE" || symbol.endsWith(".NS") || symbol.endsWith(".BO")) {
     const clean = symbol.replace('.NS', '').replace('.BO', '');
-    tvSymbol = `${market === "BSE" ? "BSE" : "NSE"}:${clean}`;
+    const resolvedMkt = (market === "BSE" || symbol.endsWith(".BO")) ? "BSE" : "NSE";
+    tvSymbol = `${resolvedMkt}:${clean}`;
   } else {
     if (!symbol.includes(':')) {
       tvSymbol = symbol;

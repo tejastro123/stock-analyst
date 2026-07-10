@@ -12,11 +12,11 @@ const US_SYMBOLS = [
 ];
 
 const IN_SYMBOLS = [
-  { "proName": "NSE:NIFTY", "title": "NIFTY 50" },
   { "proName": "BSE:SENSEX", "title": "SENSEX" },
-  { "proName": "NSE:RELIANCE", "title": "RELIANCE" },
-  { "proName": "NSE:TCS", "title": "TCS" },
-  { "proName": "NSE:INFY", "title": "INFOSYS" },
+  { "proName": "BSE:RELIANCE", "title": "RELIANCE" },
+  { "proName": "BSE:TCS", "title": "TCS" },
+  { "proName": "BSE:INFY", "title": "INFOSYS" },
+  { "proName": "BSE:HDFCBANK", "title": "HDFC BANK" },
   { "proName": "FX_IDC:USDINR", "title": "USD/INR" },
   { "proName": "OANDA:XAUUSD", "title": "Gold" }
 ];

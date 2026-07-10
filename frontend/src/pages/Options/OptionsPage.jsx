@@ -74,6 +74,11 @@ function OptionsPage() {
 
   const fetchOptionsChain = async (sym, mkt, exp) => {
     if (!sym) return;
+    if (mkt !== 'US') {
+      setError('Options chains are currently only supported for the US market.');
+      setData(null);
+      return;
+    }
     try {
       setLoading(true);
       setError('');
@@ -183,11 +188,12 @@ function OptionsPage() {
           <select className="form-input" value={market} onChange={e => setMarket(e.target.value)}>
             <option value="US">🇺🇸 US</option>
             <option value="NSE">🇮🇳 NSE India</option>
+            <option value="BSE">🇮🇳 BSE India</option>
           </select>
           <button type="submit" className="btn btn-primary btn-sm">LOAD</button>
           {data && <ReportExporter pageName="options" data={{ symbol, expiry, chain: rows }} label="EXPORT PDF" />}
         </form>
-
+ 
         {data && (
           <div className="flex gap-4 font-mono text-xs items-center">
             <div>
@@ -201,7 +207,7 @@ function OptionsPage() {
             <div>
               <span className="text-muted">STOCK PRICE:</span>
               <span className="text-accent fw-600" style={{ marginLeft: 6 }}>
-                ${data.price ? data.price.toFixed(2) : '—'}
+                {(market === 'NSE' || market === 'BSE') ? '₹' : '$'}{data.price ? data.price.toFixed(2) : '—'}
               </span>
             </div>
           </div>
