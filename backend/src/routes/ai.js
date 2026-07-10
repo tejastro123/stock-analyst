@@ -112,30 +112,40 @@ router.post('/analyze', authenticate, async (req, res) => {
     let systemPrompt = 'You are a senior Wall Street financial research analyst.';
 
     if (assetType === 'etf') {
-      const [fundRes, quoteRes] = await Promise.all([
-        axios.get(`${PY_URL}/fundamentals/${symbol}?market=${market}`).catch(() => ({ data: {} })),
+      const [etfRes, quoteRes] = await Promise.all([
+        axios.get(`${PY_URL}/etf/details/${symbol}?market=${market}`).catch(() => ({ data: {} })),
         axios.get(`${PY_URL}/quotes/${symbol}?market=${market}`).catch(() => ({ data: {} }))
       ]);
-      const fund = fundRes.data || {};
+      const etf = etfRes.data || {};
       const quote = quoteRes.data || {};
+      const risk = etf.risk_profile || {};
+
+      const holdingsList = (etf.holdings || []).slice(0, 5).map(h => `${h.symbol || h.name} (${(h.weight || 0).toFixed(1)}%)`).join(', ');
+      const sectorsList = Object.entries(etf.sector_weights || {}).slice(0, 5).map(([s, w]) => `${s} (${(w || 0).toFixed(1)}%)`).join(', ');
 
       prompt = `
 Generate a comprehensive, professional ETF research report for ticker ${symbol.toUpperCase()} (${market}) in markdown format.
 Use these parameters:
-1. ETF Name: ${fund.name || symbol}
-2. Sector/Theme: ${fund.sector || 'Global Diversified'}
+1. ETF Name: ${symbol.toUpperCase()}
+2. Expense Ratio: ${etf.expense_ratio ? (etf.expense_ratio * 100).toFixed(2) + '%' : 'N/A'}
 3. Last Price: $${quote.price || 'N/A'} (Prev Close: $${quote.prev_close || 'N/A'})
-4. Assets Under Management (Market Cap): $${fund.market_cap ? (fund.market_cap / 1e9).toFixed(2) + 'B' : 'N/A'}
-5. Dividend Yield: ${fund.dividend_yield ? (fund.dividend_yield * 100).toFixed(2) + '%' : 'N/A'}
-6. Volatility (Beta): ${fund.beta || 'N/A'}
+4. Dividend Yield: ${etf.etf_yield ? (etf.etf_yield * 100).toFixed(2) + '%' : 'N/A'}
+5. Sector Allocation: ${sectorsList || 'N/A'}
+6. Top Holdings: ${holdingsList || 'N/A'}
+7. Risk Assessment:
+   - Risk Score: ${risk.risk_score || 'N/A'}/100 (${risk.classification || 'N/A'})
+   - Annualized Volatility: ${risk.annualized_volatility ? risk.annualized_volatility.toFixed(1) + '%' : 'N/A'}
+   - Max Drawdown: ${risk.max_drawdown ? '-' + risk.max_drawdown.toFixed(1) + '%' : 'N/A'}
+   - Top 5 Concentration: ${risk.top_5_concentration ? risk.top_5_concentration.toFixed(1) + '%' : 'N/A'}
+   - Risk Highlights: ${risk.bullets ? risk.bullets.join('; ') : 'N/A'}
 
 Your report must contain exactly:
 # QUANTDESK ETF REPORT: ${symbol.toUpperCase()}
 1. **Investment Objective & Tracking Index**: State what the ETF tracks and its primary objective.
-2. **Key ETF Metrics**: Comments on expenses, yield, and liquidity.
+2. **Key ETF Metrics**: Comments on expenses, yield, and liquidity. Include a table of the Risk Assessment parameters above.
 3. **Asset & Sector Composition**: Highlight top sector allocations and stock holdings.
 4. **Bull Thesis / Strengths**: Exactly 3 strong points with quantitative arguments.
-5. **Bear Thesis / Risk Factors**: Exactly 3 strong risk points or tracking error challenges.
+5. **Bear Thesis / Risk Factors**: Exactly 3 strong risk points or tracking error challenges. Include a custom section outlining volatility and drawdown behaviors based on the Risk Highlights.
 6. **Desks Rating**:
    - Short Term Suitability
    - Long Term Allocation Grade (Core Allocation / Tactical Play / Avoid)
@@ -217,13 +227,21 @@ Your report must contain exactly:
       const fund = fundRes.data || {};
       const quote = quoteRes.data || {};
 
+      const isIndian = market === 'NSE' || market === 'BSE';
+      const cur = isIndian ? '₹' : '$';
+      const mcap = fund.market_cap
+        ? isIndian
+          ? `₹${(fund.market_cap / 1e7).toFixed(1)} Cr`
+          : fund.market_cap >= 1e12 ? `$${(fund.market_cap / 1e12).toFixed(2)}T` : `$${(fund.market_cap / 1e9).toFixed(2)}B`
+        : 'N/A';
+
       prompt = `
 Generate a comprehensive, professional investment research report for ticker ${symbol.toUpperCase()} (${market}) in markdown format.
 Use these 12 fundamental and market parameters:
 1. Company Name: ${fund.name || symbol}
-2. Sector/Industry: ${fund.sector} / ${fund.industry}
-3. Last Trade Price: $${quote.price || 'N/A'} (Prev Close: $${quote.prev_close || 'N/A'})
-4. Market Cap: $${fund.market_cap ? (fund.market_cap / 1e9).toFixed(2) + 'B' : 'N/A'}
+2. Sector/Industry: ${fund.sector || 'Diversified'} / ${fund.industry || 'Index / Benchmark'}
+3. Last Trade Price: ${cur}${quote.price || 'N/A'} (Prev Close: ${cur}${quote.prev_close || 'N/A'})
+4. Market Cap: ${mcap}
 5. Trailing P/E: ${fund.pe_trailing || 'N/A'} | Forward P/E: ${fund.pe_forward || 'N/A'}
 6. PEG Ratio: ${fund.peg_ratio || 'N/A'}
 7. Price-to-Book (P/B): ${fund.pb_ratio || 'N/A'}
@@ -232,6 +250,8 @@ Use these 12 fundamental and market parameters:
 10. Profit Margin: ${fund.profit_margin ? (fund.profit_margin * 100).toFixed(2) + '%' : 'N/A'}
 11. Beta: ${fund.beta || 'N/A'}
 12. Dividend Yield: ${fund.dividend_yield ? (fund.dividend_yield * 100).toFixed(2) + '%' : 'N/A'}
+
+Note: If fundamental data is unavailable (N/A), analyze the ticker contextually based on its known characteristics, sector position, and market standing. Do not call it "enigmatic" — provide substantive analysis using available knowledge.
 
 Your report must contain exactly:
 # QUANTDESK INVESTMENT REPORT: ${symbol.toUpperCase()}
@@ -245,7 +265,9 @@ Your report must contain exactly:
    - Long Term Target (3Y)
    - Consensus Recommendation (Strong Buy / Buy / Hold / Sell / Underperform)
 `;
-      systemPrompt = "You are a senior Wall Street equity research analyst.";
+      systemPrompt = isIndian
+        ? "You are a senior Indian equity research analyst at a BSE/NSE-listed brokerage. Use INR (₹) for all currency values."
+        : "You are a senior Wall Street equity research analyst.";
     }
 
     await handleOllamaStream(res, prompt, systemPrompt);
@@ -358,9 +380,65 @@ Provide a detailed quantitative risk advisory report in markdown format:
   await handleOllamaStream(res, prompt, "You are an institutional Risk Manager.");
 });
 
+// ── 6. AI Macro Strategist Advisor ──────────────────────────
+router.post('/macro-review', authenticate, async (req, res) => {
+  try {
+    const [fedFundsRes, cpiRes, spreadRes, curveRes] = await Promise.all([
+      axios.get(`${PY_URL}/macro/series/FEDFUNDS`).catch(() => ({ data: [] })),
+      axios.get(`${PY_URL}/macro/series/CPIAUCSL?calculate_yoy=true`).catch(() => ({ data: [] })),
+      axios.get(`${PY_URL}/macro/series/T10Y2Y`).catch(() => ({ data: [] })),
+      axios.get(`${PY_URL}/macro/curve`).catch(() => ({ data: [] }))
+    ]);
+
+    const fedFundsList = fedFundsRes.data || [];
+    const cpiList = cpiRes.data || [];
+    const spreadList = spreadRes.data || [];
+    const curveList = curveRes.data || [];
+
+    const fedFunds = fedFundsList.length > 0 ? fedFundsList[fedFundsList.length - 1].value : 5.33;
+    const inflation = cpiList.length > 0 ? cpiList[cpiList.length - 1].value : 3.2;
+    const spread = spreadList.length > 0 ? spreadList[spreadList.length - 1].value : -0.42;
+    
+    const yield10yObj = curveList.find(c => c.maturity === '10Y') || curveList.find(c => c.maturity === '10y') || {};
+    const yield10y = yield10yObj.yield !== undefined ? yield10yObj.yield : 4.25;
+
+    const prompt = `
+Analyze the current macroeconomic regime using these indicators:
+- Effective Federal Funds Rate: ${fedFunds}%
+- YoY CPI Inflation: ${inflation}%
+- 10-Year Treasury Yield: ${yield10y}%
+- 10Y-2Y Treasury Yield Spread: ${spread}
+
+Provide a precise macro strategist assessment in markdown format:
+1. Economic Cycle Regime Identification (e.g. expansion, late-cycle, contraction signals from yield curve, employment, inflation trend)
+2. Inflation Outlook & Policy Trajectory (central bank stance, interest rate path projections)
+3. Systematic Transmission Risks (credit conditions, equity market effects, interest rate vulnerabilities)
+
+Do not issue policy advice or investment recommendations. Use objective, professional language.
+`;
+
+    await handleOllamaStream(res, prompt, "You are a senior global macro hedge fund strategist and macro economist.");
+  } catch (err) {
+    console.error('Macro review error:', err);
+    res.status(500).json({ error: 'Failed to run macro review' });
+  }
+});
+
 // ── Mock Fallback Generator ──────────────────────────────────
 function generateMockResponse(prompt) {
   const normalized = prompt.toLowerCase();
+
+  if (normalized.includes('macroeconomic regime') || normalized.includes('macro strategist')) {
+    return [
+      `# QUANTDESK MACRO STRATEGY PULSE\n\n`,
+      `### 1. Economic Cycle Regime Identification\n`,
+      `The 10Y-2Y Treasury spread remains inverted. Historically, this signal indicates a late-cycle expansion transitioning toward deceleration. Investors should prepare portfolios for potential growth slowdowns.\n\n`,
+      `### 2. Inflation Outlook & Policy Trajectory\n`,
+      `YoY CPI Inflation stands at 3.2%, while the Effective Federal Funds Rate is held restrictive at 5.33%. The data suggests the central bank will maintain a high-for-longer policy path until core services inflation anchors closer to target.\n\n`,
+      `### 3. Systematic Transmission Risks\n`,
+      `Restrictive policy poses transmission risks to commercial real estate credit and bank balance sheets. Professionals should monitor high-yield spreads and bank lending standards carefully.`
+    ];
+  }
   
   if (normalized.includes('etf report')) {
     const symbol = (prompt.match(/ticker\s+([a-zA-Z0-9\-\.]+)/i)?.[1] || 'SELECTED ETF').toUpperCase();

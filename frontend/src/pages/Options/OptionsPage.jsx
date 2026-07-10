@@ -74,11 +74,6 @@ function OptionsPage() {
 
   const fetchOptionsChain = async (sym, mkt, exp) => {
     if (!sym) return;
-    if (mkt !== 'US') {
-      setError('Options chains are currently only supported for the US market.');
-      setData(null);
-      return;
-    }
     try {
       setLoading(true);
       setError('');
@@ -210,6 +205,22 @@ function OptionsPage() {
                 {(market === 'NSE' || market === 'BSE') ? '₹' : '$'}{data.price ? data.price.toFixed(2) : '—'}
               </span>
             </div>
+            {data.pcr !== undefined && (
+              <>
+                <div>
+                  <span className="text-muted">PCR:</span>
+                  <span className="text-green fw-600" style={{ marginLeft: 6 }}>{data.pcr}</span>
+                </div>
+                <div className="hide-mobile">
+                  <span className="text-muted">CALL OI:</span>
+                  <span className="text-secondary" style={{ marginLeft: 6 }}>{fmtInt(data.total_call_oi)}</span>
+                </div>
+                <div className="hide-mobile">
+                  <span className="text-muted">PUT OI:</span>
+                  <span className="text-secondary" style={{ marginLeft: 6 }}>{fmtInt(data.total_put_oi)}</span>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

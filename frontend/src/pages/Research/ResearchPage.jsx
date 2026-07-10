@@ -15,6 +15,7 @@ function ResearchPage() {
   const [streamedOutput, setStreamedOutput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState('');
+  const [etfPeers, setEtfPeers] = useState(null);
   const outputEndRef = useRef(null);
 
   const getTickerPlaceholder = () => {
@@ -124,6 +125,16 @@ function ResearchPage() {
     e.preventDefault();
     if (!ticker) return;
     handleStreamRequest('analyze', { symbol: ticker.toUpperCase(), assetType, market });
+    // Fetch ETF peers if ETF selected
+    if (assetType === 'etf') {
+      import('../../api').then(({ marketApi }) => {
+        marketApi.getEtfPeers(ticker.toUpperCase(), market)
+          .then(res => setEtfPeers(res.data))
+          .catch(() => setEtfPeers(null));
+      });
+    } else {
+      setEtfPeers(null);
+    }
   };
 
   const handleSentimentSubmit = (e) => {
@@ -159,6 +170,10 @@ function ResearchPage() {
     }
   };
 
+  const handleMacroSubmit = () => {
+    handleStreamRequest('macro-review', {});
+  };
+
   const handleExportPDF = async () => {
     if (!streamedOutput) return;
 
@@ -181,6 +196,8 @@ function ResearchPage() {
         ? 'Portfolio Strategic Review'
         : selectedTool === 'risk'
         ? 'Quantitative Risk Analysis'
+        : selectedTool === 'macro'
+        ? 'Macro Strategy Review'
         : 'AI Copilot Research Note';
 
       const res = await reportsApi.exportPdf({
@@ -273,6 +290,14 @@ function ResearchPage() {
               >
                 <span className="tool-title">🛡️ Risk Advisor</span>
                 <span className="tool-desc">VaR breakdown & concrete hedging strategy</span>
+              </button>
+
+              <button 
+                className={`tool-btn ${selectedTool === 'macro' ? 'active' : ''}`}
+                onClick={() => { setSelectedTool('macro'); setStreamedOutput(''); }}
+              >
+                <span className="tool-title">🌍 Macro Advisor</span>
+                <span className="tool-desc">Identify cycle regimes and policy transmission risks</span>
               </button>
             </div>
 
@@ -401,6 +426,18 @@ function ResearchPage() {
                   </button>
                 </div>
               )}
+
+              {selectedTool === 'macro' && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-muted font-mono text-xxs uppercase">Analyze Macro Regime</span>
+                  <p className="text-muted text-xxs">
+                    Aggregates Federal Funds rate, CPI inflation, yield curve spreads, and drafts regime transmission risks.
+                  </p>
+                  <button onClick={handleMacroSubmit} className="btn btn-primary" disabled={streaming}>
+                    {streaming ? 'RUNNING MACRO ANALYSIS...' : 'START MACRO ANALYSIS'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -444,6 +481,56 @@ function ResearchPage() {
                   <MarkdownRenderer content={streamedOutput} />
                 ) : null}
                 {streaming && <span className="stream-cursor">▋</span>}
+
+                {/* ETF Peer Cost Comparison */}
+                {etfPeers && !streaming && (
+                  <div className="panel" style={{ marginTop: '20px', border: '1px solid var(--border-primary)' }}>
+                    <div className="panel-header">
+                      <span className="panel-title">ETF Cost Peer Comparison</span>
+                      <span className="badge badge-blue font-mono">{etfPeers.group_name}</span>
+                    </div>
+                    <div className="panel-body font-mono text-xs">
+                      {etfPeers.savings && !etfPeers.savings.cheapest && (
+                        <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border-primary)', marginBottom: '8px', color: '#f59e0b' }}>
+                          💡 Cheaper alternative: <strong>{etfPeers.savings.cheapest_ticker}</strong> at {etfPeers.savings.cheapest_ratio}% —
+                          saves {etfPeers.savings.basis_point_difference?.toFixed(1)} bps
+                          (${etfPeers.savings.dollar_savings?.toLocaleString()} per $100K annually)
+                        </div>
+                      )}
+                      {etfPeers.savings?.cheapest && (
+                        <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border-primary)', marginBottom: '8px', color: '#00c87a' }}>
+                          ✅ This ETF is the cheapest in its peer group.
+                        </div>
+                      )}
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-primary)' }}>
+                            <th style={{ padding: '4px 8px', textAlign: 'left' }}>Rank</th>
+                            <th style={{ padding: '4px 8px', textAlign: 'left' }}>Symbol</th>
+                            <th style={{ padding: '4px 8px', textAlign: 'right' }}>Expense Ratio</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {etfPeers.peers?.map((p, i) => (
+                            <tr key={p.ticker} style={{
+                              background: p.ticker === etfPeers.symbol ? 'rgba(0,200,122,0.07)' : 'transparent',
+                              borderBottom: '1px solid var(--border-primary)'
+                            }}>
+                              <td style={{ padding: '5px 8px', color: 'var(--text-muted)' }}>#{i + 1}</td>
+                              <td style={{ padding: '5px 8px', fontWeight: p.ticker === etfPeers.symbol ? '700' : '400' }}>
+                                {p.ticker === etfPeers.symbol ? '→ ' : ''}{p.ticker}
+                              </td>
+                              <td style={{ padding: '5px 8px', textAlign: 'right', color: i === 0 ? '#00c87a' : 'var(--text-secondary)' }}>
+                                {p.expense_ratio?.toFixed(2)}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={outputEndRef} />
               </div>
             )}

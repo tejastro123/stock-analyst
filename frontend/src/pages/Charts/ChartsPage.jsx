@@ -60,6 +60,7 @@ function ChartsPage() {
   const [inputSym, setInputSym] = useState((qSym || (activeMarket === 'US' ? 'AAPL' : 'RELIANCE')).toUpperCase());
   const [market, setMarket] = useState((qMkt || activeMarket).toUpperCase());
   const [quote, setQuote] = useState(null);
+  const [signals, setSignals] = useState(null);
 
   const isInd = market === 'NSE' || market === 'BSE';
   const fmtVal = (val, type = 'price') => {
@@ -99,6 +100,9 @@ function ChartsPage() {
     marketApi.getQuote(symbol, market)
       .then(res => setQuote(res.data))
       .catch(() => setQuote(null));
+    marketApi.getSignals(symbol, market)
+      .then(res => setSignals(res.data))
+      .catch(() => setSignals(null));
   }, [symbol, market]);
 
   const handleSearch = (e) => {
@@ -133,7 +137,10 @@ function ChartsPage() {
 
         {/* Quote info */}
         {quote && (
-          <div className="charts-quote-strip" id="quote-strip">
+          <div className="charts-quote-strip" id="quote-strip" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {quote.logo_url && (
+              <img src={quote.logo_url} alt={`${symbol} logo`} style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#2a2e39', padding: '2px' }} />
+            )}
             <span className="font-mono fw-700 text-lg">{symbol}</span>
             <span className={`font-mono fw-700 text-xl ${up ? 'price-up' : 'price-down'}`}>
               {fmtVal(quote.price)}
@@ -221,6 +228,51 @@ function ChartsPage() {
                     ) : '—'}
                   </span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Strength Assessment — from signals endpoint */}
+          {signals && (
+            <div className="panel" style={{ flexShrink: 0 }}>
+              <div className="panel-header">
+                <span className="panel-title">Strength Assessment</span>
+                <span className="badge badge-blue font-mono">1Y</span>
+              </div>
+              <div className="panel-body font-mono text-xs" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {/* Score bars */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span className="text-muted">Technical</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '80px', height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${signals.tech_score}%`, height: '100%', background: signals.tech_score >= 70 ? '#00c87a' : signals.tech_score >= 40 ? '#f59e0b' : '#ef4444', borderRadius: '3px' }} />
+                    </div>
+                    <span className="fw-600">{signals.tech_score}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span className="text-muted">Fundamental</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '80px', height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${signals.fund_score}%`, height: '100%', background: signals.fund_score >= 70 ? '#00c87a' : signals.fund_score >= 40 ? '#f59e0b' : '#ef4444', borderRadius: '3px' }} />
+                    </div>
+                    <span className="fw-600">{signals.fund_score}</span>
+                  </div>
+                </div>
+                {/* RSI */}
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="text-muted">RSI (14)</span>
+                  <span className={signals.rsi > 70 ? 'text-red' : signals.rsi < 30 ? 'text-green' : 'text-secondary'}>
+                    {signals.rsi?.toFixed(1)}
+                  </span>
+                </div>
+                {/* Buckets */}
+                {signals.buckets && Object.entries(signals.buckets).map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span className="text-muted">{k}:</span>
+                    <span style={{ color: 'var(--color-accent)', maxWidth: '130px', textAlign: 'right', lineHeight: 1.2 }}>{v}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

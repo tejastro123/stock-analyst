@@ -42,6 +42,29 @@ async function ensureSchema() {
       UPDATE user_settings SET timezone = 'IST' WHERE timezone = 'UTC' OR timezone = 'EST';
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS trigger_price DECIMAL(18,6);
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS market VARCHAR(10) DEFAULT 'NSE';
+
+      CREATE TABLE IF NOT EXISTS screener_presets (
+        id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name       VARCHAR(100) NOT NULL,
+        filters    JSONB NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_screener_presets_user ON screener_presets(user_id);
+
+      CREATE TABLE IF NOT EXISTS portfolio_history (
+        id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+        recorded_on  DATE NOT NULL DEFAULT CURRENT_DATE,
+        total_value  DECIMAL(18, 6) NOT NULL,
+        cash_balance DECIMAL(18, 6) DEFAULT 0.0,
+        equity_value DECIMAL(18, 6) DEFAULT 0.0,
+        created_at   TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(portfolio_id, recorded_on)
+      );
+      CREATE INDEX IF NOT EXISTS idx_portfolio_history_portfolio ON portfolio_history(portfolio_id);
     `);
   } catch (err) {
     console.warn('⚠ Schema ensure warning (non-fatal):', err.message);

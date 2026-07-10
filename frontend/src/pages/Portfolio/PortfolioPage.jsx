@@ -116,20 +116,18 @@ function PortfolioPage() {
       setData(res.data);
       setError('');
 
-      // Fetch historical risk for equity curve
-      if (res.data?.positions?.length > 0) {
-        setHistLoading(true);
-        const positions = res.data.positions
-          .filter(p => p.market !== 'NSE')
-          .map(p => ({ symbol: p.symbol, quantity: parseFloat(p.quantity), market: p.market || 'US' }));
-        if (positions.length > 0) {
-          marketApi.getHistoricalRisk(positions)
-            .then(r => setHistoryData(r.data?.history || []))
-            .catch(() => {})
-            .finally(() => setHistLoading(false));
-        } else {
-          setHistLoading(false);
-        }
+      setHistLoading(true);
+      try {
+        const histRes = await portfolioApi.getPortfolioHistory();
+        const mappedHistory = (histRes.data || []).map(h => ({
+          date: h.recorded_on,
+          value: parseFloat(h.total_value)
+        }));
+        setHistoryData(mappedHistory);
+      } catch (err) {
+        console.error('Failed to fetch portfolio history:', err);
+      } finally {
+        setHistLoading(false);
       }
     } catch (err) {
       console.error(err);
@@ -375,8 +373,11 @@ function PortfolioPage() {
                       const dailyUp = pos.daily_pnl >= 0;
                       return (
                         <tr key={pos.id} className="portfolio-row">
-                          <td className="fw-600 text-accent">
-                            {pos.symbol}
+                          <td className="fw-600 text-accent" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {pos.logo_url && (
+                              <img src={pos.logo_url} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#2a2e39', padding: '1px' }} />
+                            )}
+                            <span>{pos.symbol}</span>
                             <span className="text-muted" style={{ fontSize: 9, marginLeft: 4 }}>
                               {pos.market === 'NSE' ? '🇮🇳' : '🇺🇸'}
                             </span>
@@ -541,7 +542,7 @@ function PortfolioPage() {
           {(historyData.length > 0 || histLoading) && (
             <div className="panel" style={{ flexShrink: 0 }}>
               <div className="panel-header">
-                <span className="panel-title">1-Year Equity Curve</span>
+                <span className="panel-title">Portfolio Equity Curve</span>
                 {histLoading && <span className="font-mono text-xxs text-amber animate-pulse">COMPUTING...</span>}
               </div>
               <div className="panel-body" style={{ padding: '10px' }}>

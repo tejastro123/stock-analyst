@@ -107,4 +107,51 @@ router.patch('/settings', authenticate, authorize('trader', 'admin'), async (req
   }
 });
 
+// GET /api/users/screener-presets
+router.get('/screener-presets', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM screener_presets WHERE user_id = $1 ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/users/screener-presets
+router.post('/screener-presets', authenticate, authorize('trader', 'admin'), async (req, res) => {
+  const { name, filters } = req.body;
+  if (!name || !filters) return res.status(400).json({ error: 'Name and filters required' });
+  try {
+    const result = await pool.query(
+      `INSERT INTO screener_presets (user_id, name, filters)
+       VALUES ($1, $2, $3::jsonb)
+       ON CONFLICT (user_id, name) DO UPDATE SET
+         filters = EXCLUDED.filters,
+         updated_at = NOW()
+       RETURNING *`,
+      [req.user.id, name, JSON.stringify(filters)]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Screener preset save error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/users/screener-presets/:name
+router.delete('/screener-presets/:name', authenticate, authorize('trader', 'admin'), async (req, res) => {
+  try {
+    await pool.query(
+      `DELETE FROM screener_presets WHERE user_id = $1 AND name = $2`,
+      [req.user.id, req.params.name]
+    );
+    res.json({ message: 'Preset deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

@@ -15,6 +15,9 @@ export const userApi = {
   removeSymbol: (wlId, symbol) => api.delete(`/users/watchlists/${wlId}/symbols/${symbol}`),
   getSettings: () => api.get('/users/settings'),
   updateSettings: (data) => api.patch('/users/settings', data),
+  getScreenerPresets: () => api.get('/users/screener-presets'),
+  saveScreenerPreset: (name, filters) => api.post('/users/screener-presets', { name, filters }),
+  deleteScreenerPreset: (name) => api.delete(`/users/screener-presets/${name}`),
 };
 
 export const marketApi = {
@@ -62,6 +65,13 @@ export const marketApi = {
   searchMacro: (query) => api.get(`/market/macro/search?query=${encodeURIComponent(query)}`),
   getNews: (symbol, market = 'US') => api.get(`/market/news/${symbol}?market=${market}`),
   getHistoricalRisk: (positions) => api.post('/market/risk/historical', { positions }),
+
+  // Signals — technical & fundamental scores
+  getSignals: (symbol, market = 'US') => api.get(`/market/signals/${symbol}?market=${market}`),
+
+  // ETF
+  getEtfPeers: (symbol, market = 'US') => api.get(`/market/etf/peers/${symbol}?market=${market}`),
+  getEtfDetails: (symbol, market = 'US') => api.get(`/market/etf/details/${symbol}?market=${market}`),
 };
 
 export const portfolioApi = {
@@ -69,6 +79,7 @@ export const portfolioApi = {
   addPosition: (data) => api.post('/portfolio/position', data),
   updatePosition: (id, data) => api.put(`/portfolio/position/${id}`, data),
   deletePosition: (id) => api.delete(`/portfolio/position/${id}`),
+  getPortfolioHistory: () => api.get('/portfolio/history'),
 };
 
 export const alertsApi = {

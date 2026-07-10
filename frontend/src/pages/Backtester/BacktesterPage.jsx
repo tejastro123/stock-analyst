@@ -355,6 +355,7 @@ function BacktesterPage() {
                     <option value="sma">Simple Moving Average Crossover (SMA)</option>
                     <option value="rsi">Relative Strength Index (RSI)</option>
                     <option value="macd">MACD Signal Line Cross</option>
+                    <option value="buy_hold">Passive Buy & Hold (Benchmark)</option>
                   </select>
                 </div>
 

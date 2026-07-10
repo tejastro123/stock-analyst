@@ -83,6 +83,50 @@ function ScreenerPage() {
   const [sortAsc, setSortAsc] = useState(false);
   const [ran, setRan] = useState(false);
   const [activeTab, setActiveTab] = useState('custom'); // 'custom' | 'tradingview'
+  
+  const [presets, setPresets] = useState([]);
+  const [newPresetName, setNewPresetName] = useState('');
+
+  const loadPresets = () => {
+    userApi.getScreenerPresets()
+      .then(res => setPresets(res.data || []))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadPresets();
+  }, []);
+
+  const handleSavePreset = (e) => {
+    e.preventDefault();
+    if (!newPresetName.trim()) return;
+    userApi.saveScreenerPreset(newPresetName.trim(), filters)
+      .then(() => {
+        setNewPresetName('');
+        loadPresets();
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
+
+  const handleLoadPreset = (preset) => {
+    if (preset && preset.filters) {
+      setFilters(preset.filters);
+    }
+  };
+
+  const handleDeletePreset = (name, e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete preset "${name}"?`)) return;
+    userApi.deleteScreenerPreset(name)
+      .then(() => {
+        loadPresets();
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
 
   useEffect(() => {
     setFilters(prev => ({ ...prev, market: activeMarket }));
@@ -157,6 +201,64 @@ function ScreenerPage() {
         <div className="screener-filters-header">
           <span className="panel-title">FILTERS</span>
           <button id="btn-reset-filters" className="btn btn-ghost btn-sm" onClick={resetFilters}>RESET</button>
+        </div>
+
+        <div className="filter-section" style={{ borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
+          <div className="filter-section-title">PRESETS</div>
+          
+          {presets.length > 0 && (
+            <div className="filter-field">
+              <label className="filter-label">Load Preset</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {presets.map((p) => (
+                  <div 
+                    key={p.name} 
+                    onClick={() => handleLoadPreset(p)}
+                    className="preset-item"
+                    style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      padding: '4px 8px', 
+                      background: 'var(--bg-primary)', 
+                      border: '1px solid var(--border-primary)', 
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontFamily: 'var(--font-mono)'
+                    }}
+                  >
+                    <span className="text-primary">{p.name}</span>
+                    <button 
+                      onClick={(e) => handleDeletePreset(p.name, e)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: '0 4px', height: '18px', minWidth: 'auto', color: 'var(--text-red)' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSavePreset} style={{ display: 'flex', gap: '4px', marginTop: presets.length > 0 ? '8px' : '0' }}>
+            <input
+              type="text"
+              placeholder="PRESET NAME"
+              className="form-input"
+              value={newPresetName}
+              onChange={(e) => setNewPresetName(e.target.value)}
+              style={{ flexGrow: 1, fontSize: '11px', height: '26px' }}
+            />
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ fontSize: '10px', height: '26px', padding: '0 8px' }}
+            >
+              SAVE
+            </button>
+          </form>
         </div>
 
         <div className="filter-section">

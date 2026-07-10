@@ -97,6 +97,8 @@ def run_backtest(req: BacktestRequest):
         if fast >= slow:
             raise HTTPException(status_code=400, detail="Fast period must be less than slow period")
         df["Signal"] = calculate_macd_signals(df, fast, slow, signal)
+    elif strategy == "buy_hold":
+        df["Signal"] = pd.Series(1.0, index=df.index)
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported strategy: {strategy}")
         

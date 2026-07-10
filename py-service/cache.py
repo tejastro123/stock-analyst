@@ -14,6 +14,8 @@ TTL_OHLCV       = 60       # 1m   — candles
 TTL_FUNDAMENTALS = 3600    # 1h   — company info
 TTL_OPTIONS     = 120      # 2m   — options chain
 TTL_SCREENER    = 300      # 5m   — screener results
+TTL_SIGNALS     = 300      # 5m   — technical/fundamental scores
+TTL_ETF         = 3600     # 1h   — ETF details & peers
 
 # Cache pools (maxsize = max unique keys per pool)
 _caches: dict[str, TTLCache] = {
@@ -22,6 +24,8 @@ _caches: dict[str, TTLCache] = {
     "fundamentals": TTLCache(maxsize=500,  ttl=TTL_FUNDAMENTALS),
     "options":      TTLCache(maxsize=200,  ttl=TTL_OPTIONS),
     "screener":     TTLCache(maxsize=100,  ttl=TTL_SCREENER),
+    "signals":      TTLCache(maxsize=500,  ttl=TTL_SIGNALS),
+    "etf":          TTLCache(maxsize=300,  ttl=TTL_ETF),
 }
 
 

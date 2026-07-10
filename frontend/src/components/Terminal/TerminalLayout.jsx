@@ -31,6 +31,15 @@ function TerminalLayout() {
   const navigate = useNavigate();
   const now = new Date();
 
+  const [theme, setTheme] = React.useState(document.documentElement.getAttribute('data-theme') || 'dark');
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    userApi.updateSettings({ theme: nextTheme }).catch(() => {});
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -42,6 +51,7 @@ function TerminalLayout() {
       .then(res => {
         if (res.data?.theme) {
           document.documentElement.setAttribute('data-theme', res.data.theme);
+          setTheme(res.data.theme);
         }
         if (res.data?.default_market && !localStorage.getItem('qd_active_market')) {
           const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
@@ -49,6 +59,69 @@ function TerminalLayout() {
         }
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    let socket = null;
+    let reconnectTimer = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 5;
+
+    const connectGlobalSocket = () => {
+      const token = localStorage.getItem('qd_access_token');
+      if (!token) return;
+
+      const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProto}//localhost:3001/ws?token=${token}`;
+
+      socket = new WebSocket(wsUrl);
+
+      socket.onopen = () => {
+        retryCount = 0;
+        console.log('🔌 Global Alert WebSocket connected.');
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'ALERT_TRIGGERED') {
+            if (Notification.permission === 'granted') {
+              new Notification(`🔔 QuantDesk Triggered: ${data.alert.symbol}`, {
+                body: data.alert.message || `${data.alert.symbol} crossed threshold of ${data.alert.threshold}`
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Failed to parse global alert message:', err);
+        }
+      };
+
+      socket.onclose = () => {
+        console.log('🔌 Global Alert WebSocket closed.');
+        if (retryCount < MAX_RETRIES) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 15000);
+          retryCount += 1;
+          reconnectTimer = setTimeout(connectGlobalSocket, delay);
+        }
+      };
+
+      socket.onerror = (err) => {
+        console.error('Global Alert WebSocket error:', err);
+      };
+    };
+
+    connectGlobalSocket();
+
+    return () => {
+      if (socket) socket.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+    };
   }, []);
 
   return (
@@ -106,6 +179,14 @@ function TerminalLayout() {
                 )}
               </div>
             </div>
+            <button 
+              id="btn-theme-toggle" 
+              className="btn btn-ghost btn-sm font-mono" 
+              onClick={toggleTheme}
+              style={{ marginRight: '8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            >
+              {theme === 'dark' ? '☀️ LIGHT' : '🌙 DARK'}
+            </button>
             <button id="btn-logout" className="btn btn-ghost btn-sm" onClick={handleLogout}>
               EXIT
             </button>

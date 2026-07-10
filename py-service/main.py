@@ -20,7 +20,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import cache
-from routers import quotes, ohlcv, fundamentals, options, screener, sector, market_metrics, news, macro, backtester, risk
+from routers import quotes, ohlcv, fundamentals, options, screener, sector, market_metrics, news, macro, backtester, risk, signals, etf
 
 app = FastAPI(
     title="QuantDesk Data Service",
@@ -55,6 +55,8 @@ app.include_router(news.router)
 app.include_router(macro.router)
 app.include_router(backtester.router)
 app.include_router(risk.router)
+app.include_router(signals.router)
+app.include_router(etf.router)
 
 
 

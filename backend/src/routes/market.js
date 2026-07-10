@@ -223,5 +223,37 @@ router.post('/risk/historical', authenticate, async (req, res) => {
   }
 });
 
+// ── Signals (Technical + Fundamental Scores) ──────────────────────────────
+router.get('/signals/:symbol', authenticate, async (req, res) => {
+  try {
+    const { market = 'US' } = req.query;
+    const data = await pyFetch(`/signals/${req.params.symbol}?market=${market}`);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
+// ── ETF Peers & Details ────────────────────────────────────────────────────
+router.get('/etf/peers/:symbol', authenticate, async (req, res) => {
+  try {
+    const { market = 'US' } = req.query;
+    const data = await pyFetch(`/etf/peers/${req.params.symbol}?market=${market}`);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
+router.get('/etf/details/:symbol', authenticate, async (req, res) => {
+  try {
+    const { market = 'US' } = req.query;
+    const data = await pyFetch(`/etf/details/${req.params.symbol}?market=${market}`);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 
