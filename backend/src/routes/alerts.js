@@ -19,7 +19,7 @@ router.get('/', authenticate, async (req, res) => {
 
 // POST /api/alerts - Create an alert
 router.post('/', authenticate, authorize('trader', 'admin'), async (req, res) => {
-  const { symbol, alert_type, threshold, message } = req.body;
+  const { symbol, alert_type, threshold, message, market } = req.body;
   
   if (!symbol || !alert_type) {
     return res.status(400).json({ error: 'Symbol and alert type are required' });
@@ -32,13 +32,19 @@ router.post('/', authenticate, authorize('trader', 'admin'), async (req, res) =>
   }
 
   try {
+    let resolvedMarket = market;
+    if (!resolvedMarket) {
+      const userSettings = await pool.query('SELECT default_market FROM user_settings WHERE user_id = $1', [req.user.id]);
+      resolvedMarket = userSettings.rows.length > 0 ? userSettings.rows[0].default_market : 'NSE';
+    }
+
     const result = await pool.query(
-      `INSERT INTO alerts (user_id, symbol, alert_type, threshold, message, is_active, triggered)
-       VALUES ($1, $2, $3, $4, $5, true, false)
+      `INSERT INTO alerts (user_id, symbol, alert_type, threshold, message, is_active, triggered, market)
+       VALUES ($1, $2, $3, $4, $5, true, false, $6)
        RETURNING *`,
-      [req.user.id, symbol.toUpperCase(), alert_type, threshold || null, message || '']
+      [req.user.id, symbol.toUpperCase(), alert_type, threshold || null, message || '', resolvedMarket]
     );
-    res.status(210).json(result.rows[0]); // Using 201 Created or 200/210 status
+    res.status(210).json(result.rows[0]);
   } catch (err) {
     console.error('Failed to create alert:', err);
     res.status(500).json({ error: 'Failed to create alert' });

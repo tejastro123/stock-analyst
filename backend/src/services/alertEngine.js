@@ -80,22 +80,41 @@ async function evaluateAlerts() {
 
     if (activeAlerts.length === 0) return;
 
-    // 2. Extract unique symbols
-    const symbols = [...new Set(activeAlerts.map((a) => a.symbol))];
+    // 2. Group alerts by market
+    const marketGroups = {};
+    activeAlerts.forEach((alert) => {
+      const m = alert.market || 'US';
+      if (!marketGroups[m]) marketGroups[m] = new Set();
+      marketGroups[m].add(alert.symbol);
+    });
 
-    // 3. Fetch current quotes from Python service
-    let quotes = {};
-    try {
-      const res = await axios.post(`${PY_URL}/quotes/batch`, { symbols, market: 'US' }, { timeout: 5000 });
-      quotes = res.data || {};
-    } catch (err) {
-      console.error('AlertEngine: Failed to fetch quotes from Python service:', err.message);
-      return;
-    }
+    // 3. Fetch current quotes from Python service in parallel per market
+    const marketPromises = Object.keys(marketGroups).map(async (m) => {
+      const symbols = Array.from(marketGroups[m]);
+      try {
+        const res = await axios.post(`${PY_URL}/quotes/batch`, { symbols, market: m }, { timeout: 5000 });
+        return { market: m, quotes: res.data.quotes || {} };
+      } catch (err) {
+        console.error(`AlertEngine: Failed to fetch quotes for market ${m}:`, err.message);
+        return { market: m, quotes: {} };
+      }
+    });
+
+    const marketResults = await Promise.all(marketPromises);
+
+    // Map quotes using unique composite key "SYMBOL:MARKET"
+    const quotesMap = {};
+    marketResults.forEach((res) => {
+      Object.keys(res.quotes).forEach((sym) => {
+        quotesMap[`${sym.toUpperCase()}:${res.market}`] = res.quotes[sym];
+      });
+    });
 
     // 4. Evaluate alerts
     for (const alert of activeAlerts) {
-      const quote = quotes[alert.symbol];
+      const m = alert.market || 'US';
+      const key = `${alert.symbol.toUpperCase()}:${m}`;
+      const quote = quotesMap[key];
       if (!quote || !quote.success) continue;
 
       const currentPrice = quote.price;

@@ -8,11 +8,14 @@ from typing import Dict, Any, List, Optional
 
 router = APIRouter(prefix="/backtest", tags=["backtest"])
 
+from utils import normalize_symbol
+
 class BacktestRequest(BaseModel):
     symbol: str
     strategy: str  # 'sma' | 'rsi' | 'macd'
     start_date: str
     end_date: str
+    market: Optional[str] = "NSE"
     params: Dict[str, Any] = {}
 
 def calculate_sma_signals(df: pd.DataFrame, fast: int, slow: int) -> pd.Series:
@@ -55,14 +58,16 @@ def calculate_macd_signals(df: pd.DataFrame, fast: int, slow: int, signal: int) 
 
 @router.post("/run")
 def run_backtest(req: BacktestRequest):
-    symbol = req.symbol.upper()
+    symbol = req.symbol.upper().strip()
+    market = req.market.upper().strip() if req.market else "NSE"
+    normalized_symbol = normalize_symbol(symbol, market)
     strategy = req.strategy.lower()
     
     # Fetch Data
     try:
-        ticker_data = yf.download(symbol, start=req.start_date, end=req.end_date)
+        ticker_data = yf.download(normalized_symbol, start=req.start_date, end=req.end_date)
         if ticker_data.empty:
-            raise HTTPException(status_code=404, detail=f"No market data found for symbol {symbol}")
+            raise HTTPException(status_code=404, detail=f"No market data found for symbol {normalized_symbol}")
         
         # Flatten multi-index columns if they exist (yfinance 0.2.x batch returns multi-index sometimes)
         if isinstance(ticker_data.columns, pd.MultiIndex):

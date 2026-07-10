@@ -41,6 +41,7 @@ async function ensureSchema() {
       UPDATE user_settings SET currency = 'INR' WHERE currency = 'USD';
       UPDATE user_settings SET timezone = 'IST' WHERE timezone = 'UTC' OR timezone = 'EST';
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS trigger_price DECIMAL(18,6);
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS market VARCHAR(10) DEFAULT 'NSE';
     `);
   } catch (err) {
     console.warn('⚠ Schema ensure warning (non-fatal):', err.message);

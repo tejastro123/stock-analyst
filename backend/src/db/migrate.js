@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS alerts (
   symbol      VARCHAR(20) NOT NULL,
   alert_type  VARCHAR(30) NOT NULL CHECK (alert_type IN ('price_above', 'price_below', 'volume_spike', 'rsi_overbought', 'rsi_oversold', 'macd_cross')),
   threshold   DECIMAL(18, 6),
+  market      VARCHAR(10) DEFAULT 'NSE',
   message     TEXT,
   is_active   BOOLEAN DEFAULT true,
   triggered   BOOLEAN DEFAULT false,
@@ -104,8 +105,9 @@ CREATE TABLE IF NOT EXISTS alerts (
 CREATE INDEX IF NOT EXISTS idx_alerts_user ON alerts(user_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_symbol ON alerts(symbol);
 
--- Add trigger_price column if upgrading from older schema
+-- Add columns if upgrading from older schema
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS trigger_price DECIMAL(18,6);
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS market VARCHAR(10) DEFAULT 'NSE';
 
 -- =====================
 -- USER SETTINGS

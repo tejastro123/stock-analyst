@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { alertsApi } from '../../api';
+import { alertsApi, userApi } from '../../api';
 import useAuthStore from '../../store/authStore';
 import './Alerts.css';
 
@@ -10,6 +10,8 @@ function AlertsPage() {
   const [alertType, setAlertType] = useState('price_above');
   const [threshold, setThreshold] = useState('');
   const [message, setMessage] = useState('');
+  const [market, setMarket] = useState('NSE');
+  const [currencySymbol, setCurrencySymbol] = useState('₹');
   
   // Real-time notifications
   const [notifications, setNotifications] = useState([]);
@@ -18,6 +20,13 @@ function AlertsPage() {
   const [error, setError] = useState('');
 
   const socketRef = useRef(null);
+
+  // Helper to format currency
+  const formatCurrency = (val, mkt) => {
+    const isIndian = mkt === 'NSE' || mkt === 'BSE';
+    const sym = isIndian ? '₹' : '$';
+    return `${sym}${parseFloat(val).toFixed(2)}`;
+  };
 
   // 1. Fetch current alerts list
   const fetchAlerts = () => {
@@ -68,7 +77,6 @@ function AlertsPage() {
     ws.onclose = () => {
       setWsStatus('DISCONNECTED');
       console.log('🔌 WebSocket connection closed.');
-      // Auto-reconnect with exponential backoff
       if (retryCount.current < MAX_RETRIES) {
         const delay = Math.min(1000 * Math.pow(2, retryCount.current), 30000);
         retryCount.current += 1;
@@ -88,12 +96,22 @@ function AlertsPage() {
     fetchAlerts();
     connectWebSocket();
 
+    // Fetch user settings to default the market and currency
+    userApi.getSettings()
+      .then(res => {
+        const settings = res.data;
+        const m = settings.default_market === 'IN' ? 'NSE' : settings.default_market;
+        setMarket(m);
+        setCurrencySymbol(settings.currency === 'INR' ? '₹' : '$');
+      })
+      .catch(err => console.error('Failed to fetch settings in AlertsPage:', err));
+
     if (Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
     return () => {
-      retryCount.current = MAX_RETRIES; // stop reconnect on unmount
+      retryCount.current = MAX_RETRIES;
       clearTimeout(reconnectTimer.current);
       if (socketRef.current) {
         socketRef.current.close();
@@ -116,7 +134,8 @@ function AlertsPage() {
       symbol: symbol.toUpperCase(),
       alert_type: alertType,
       threshold: parseFloat(threshold),
-      message: message || `${symbol.toUpperCase()} has crossed your target limit of ${threshold}`
+      message: message || `${symbol.toUpperCase()} has crossed your target limit of ${threshold}`,
+      market: market
     })
       .then(() => {
         setSymbol('');
@@ -188,7 +207,7 @@ function AlertsPage() {
           </div>
           {notifications.slice(0, 3).map((n, i) => (
             <div key={i} className="font-mono text-xxs text-secondary" style={{ borderLeft: '2px solid #00ff88', paddingLeft: '8px', margin: '4px 0' }}>
-              [{new Date(n.triggered_at).toLocaleTimeString()}] Ticker <span className="text-white fw-700">{n.symbol}</span> triggered at <span className="text-green">${n.trigger_price?.toFixed(2)}</span> (Threshold: ${parseFloat(n.threshold).toFixed(2)}) — {n.message}
+              [{new Date(n.triggered_at).toLocaleTimeString()}] Ticker <span className="text-white fw-700">{n.symbol} ({n.market || 'US'})</span> triggered at <span className="text-green">{formatCurrency(n.trigger_price, n.market)}</span> (Threshold: {formatCurrency(n.threshold, n.market)}) — {n.message}
             </div>
           ))}
         </div>
@@ -211,9 +230,22 @@ function AlertsPage() {
                     className="form-input"
                     value={symbol}
                     onChange={e => setSymbol(e.target.value.toUpperCase())}
-                    placeholder="e.g. AAPL"
+                    placeholder="e.g. RELIANCE / AAPL"
                     required
                   />
+                </div>
+
+                <div className="form-field">
+                  <label className="text-muted uppercase fw-600 text-xxs">Market Exchange</label>
+                  <select
+                    className="form-input"
+                    value={market}
+                    onChange={e => setMarket(e.target.value)}
+                  >
+                    <option value="NSE">NSE (India)</option>
+                    <option value="BSE">BSE (India)</option>
+                    <option value="US">US Market</option>
+                  </select>
                 </div>
 
                 <div className="form-field">
@@ -229,7 +261,7 @@ function AlertsPage() {
                 </div>
 
                 <div className="form-field">
-                  <label className="text-muted uppercase fw-600 text-xxs">Threshold Target Price ($)</label>
+                  <label className="text-muted uppercase fw-600 text-xxs">Threshold Target Price ({currencySymbol})</label>
                   <input
                     type="number"
                     step="0.01"
@@ -278,10 +310,11 @@ function AlertsPage() {
                     <div className="flex flex-col gap-1">
                       <div className="flex gap-2 items-center">
                         <span className="fw-700 text-white text-sm">{alert.symbol}</span>
+                        <span className="badge badge-secondary text-xxs font-mono">{alert.market || 'US'}</span>
                         <span className={`badge ${alert.alert_type === 'price_above' ? 'badge-green' : 'badge-red'} text-xxs`}>
                           {alert.alert_type === 'price_above' ? 'CROSSES ABOVE' : 'CROSSES BELOW'}
                         </span>
-                        <span className="text-green fw-700">${parseFloat(alert.threshold).toFixed(2)}</span>
+                        <span className="text-green fw-700">{formatCurrency(alert.threshold, alert.market)}</span>
                       </div>
                       <span className="text-muted text-xxs">{alert.message}</span>
                     </div>
@@ -325,8 +358,9 @@ function AlertsPage() {
                     <div className="flex flex-col gap-1">
                       <div className="flex gap-2 items-center">
                         <span className="fw-700 text-white text-sm">{alert.symbol}</span>
+                        <span className="badge badge-secondary text-xxs font-mono">{alert.market || 'US'}</span>
                         <span className="badge badge-amber text-xxs">TRIGGERED</span>
-                        <span className="text-muted text-xxs">Limit: ${parseFloat(alert.threshold).toFixed(2)}</span>
+                        <span className="text-muted text-xxs">Limit: {formatCurrency(alert.threshold, alert.market)}</span>
                       </div>
                       <span className="text-secondary text-xxs">{alert.message}</span>
                     </div>

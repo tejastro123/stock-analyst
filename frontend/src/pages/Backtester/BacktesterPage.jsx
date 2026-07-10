@@ -3,7 +3,7 @@ import { marketApi } from '../../api';
 import './Backtester.css';
 
 // SVG Multi-Line Chart for plotting Strategy Equity vs Benchmark
-function MultiSvgLineChart({ data, xKey, yKeys, strokeColors = ['#00f0ff', '#848e9c'] }) {
+function MultiSvgLineChart({ data, xKey, yKeys, strokeColors = ['#00f0ff', '#848e9c'], currency = '$' }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 240 });
   const [hoverIndex, setHoverIndex] = useState(null);
@@ -133,7 +133,7 @@ function MultiSvgLineChart({ data, xKey, yKeys, strokeColors = ['#00f0ff', '#848
               fontFamily="monospace"
               textAnchor="end"
             >
-              ${line.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {currency}{line.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </text>
           </g>
         ))}
@@ -218,7 +218,7 @@ function MultiSvgLineChart({ data, xKey, yKeys, strokeColors = ['#00f0ff', '#848
               fontFamily="monospace" 
               fontWeight="bold"
             >
-              Strategy: ${parseFloat(hoveredData[yKeys[0]]).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              Strategy: {currency}{parseFloat(hoveredData[yKeys[0]]).toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </text>
             <text 
               x={paths[0].points[hoverIndex].x > width / 2 ? paths[0].points[hoverIndex].x - 160 : paths[0].points[hoverIndex].x + 20} 
@@ -228,7 +228,7 @@ function MultiSvgLineChart({ data, xKey, yKeys, strokeColors = ['#00f0ff', '#848
               fontFamily="monospace" 
               fontWeight="bold"
             >
-              Benchmark: ${parseFloat(hoveredData[yKeys[1]]).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              Benchmark: {currency}{parseFloat(hoveredData[yKeys[1]]).toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </text>
           </g>
         )}
@@ -238,7 +238,8 @@ function MultiSvgLineChart({ data, xKey, yKeys, strokeColors = ['#00f0ff', '#848
 }
 
 function BacktesterPage() {
-  const [symbol, setSymbol] = useState('AAPL');
+  const [symbol, setSymbol] = useState('RELIANCE');
+  const [market, setMarket] = useState('NSE');
   const [strategy, setStrategy] = useState('sma');
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2025-01-01');
@@ -257,6 +258,10 @@ function BacktesterPage() {
   const [error, setError] = useState('');
   const [results, setResults] = useState(null);
 
+  const getCurrencySymbol = (mkt) => {
+    return (mkt === 'NSE' || mkt === 'BSE') ? '₹' : '$';
+  };
+
   const handleRunBacktest = (e) => {
     e.preventDefault();
     setLoading(true);
@@ -274,6 +279,7 @@ function BacktesterPage() {
 
     marketApi.runBacktest({
       symbol,
+      market,
       strategy,
       start_date: startDate,
       end_date: endDate,
@@ -314,9 +320,22 @@ function BacktesterPage() {
                     className="form-input"
                     value={symbol}
                     onChange={e => setSymbol(e.target.value.toUpperCase())}
-                    placeholder="AAPL"
+                    placeholder="RELIANCE"
                     required
                   />
+                </div>
+
+                <div className="form-field">
+                  <label className="text-muted uppercase fw-600 text-xxs">Market Exchange</label>
+                  <select
+                    className="form-input"
+                    value={market}
+                    onChange={e => setMarket(e.target.value)}
+                  >
+                    <option value="NSE">NSE (India)</option>
+                    <option value="BSE">BSE (India)</option>
+                    <option value="US">US Market</option>
+                  </select>
                 </div>
 
                 <div className="form-field">
@@ -537,7 +556,7 @@ function BacktesterPage() {
               {/* Equity chart */}
               <div className="panel">
                 <div className="panel-header flex justify-between">
-                  <span className="panel-title">Equity Growth Simulation ($10,000 Initial Capital)</span>
+                  <span className="panel-title">Equity Growth Simulation ({getCurrencySymbol(market)}10,000 Initial Capital)</span>
                   <div className="flex gap-3 text-xxs font-mono">
                     <span style={{ color: '#00f0ff' }}>● Strategy</span>
                     <span style={{ color: '#848e9c' }}>● Benchmark (Buy & Hold)</span>
@@ -550,6 +569,7 @@ function BacktesterPage() {
                       xKey="date"
                       yKeys={['strategy', 'benchmark']}
                       strokeColors={['#00f0ff', '#848e9c']}
+                      currency={getCurrencySymbol(market)}
                     />
                   )}
                 </div>
@@ -621,7 +641,7 @@ function BacktesterPage() {
                   <div className="panel-body trades-table-panel" style={{ padding: 0 }}>
                     {results && (
                       <table className="trades-table font-mono">
-                        <thead>
+                         <thead>
                           <tr>
                             <th>#</th>
                             <th>Entry Date</th>
@@ -644,8 +664,8 @@ function BacktesterPage() {
                                 <td>{idx + 1}</td>
                                 <td>{trade.entry_date}</td>
                                 <td>{trade.exit_date} {trade.is_open && <span className="badge badge-amber text-xxs">OPEN</span>}</td>
-                                <td>${trade.entry_price.toFixed(2)}</td>
-                                <td>${trade.exit_price.toFixed(2)}</td>
+                                <td>{getCurrencySymbol(market)}{trade.entry_price.toFixed(2)}</td>
+                                <td>{getCurrencySymbol(market)}{trade.exit_price.toFixed(2)}</td>
                                 <td className={`text-right trade-profit ${trade.profit >= 0 ? 'price-up' : 'price-down'}`}>
                                   {trade.profit >= 0 ? '+' : ''}{trade.profit.toFixed(2)}%
                                 </td>
