@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { marketApi } from '../../api';
+import useMarketStore from '../../store/marketStore';
 import './Backtester.css';
 
 // SVG Multi-Line Chart for plotting Strategy Equity vs Benchmark
@@ -238,11 +239,17 @@ function MultiSvgLineChart({ data, xKey, yKeys, strokeColors = ['#00f0ff', '#848
 }
 
 function BacktesterPage() {
-  const [symbol, setSymbol] = useState('RELIANCE');
-  const [market, setMarket] = useState('NSE');
+  const { activeMarket } = useMarketStore();
+  const [symbol, setSymbol] = useState(activeMarket === 'US' ? 'AAPL' : 'RELIANCE');
+  const [market, setMarket] = useState(activeMarket);
   const [strategy, setStrategy] = useState('sma');
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2025-01-01');
+
+  useEffect(() => {
+    setMarket(activeMarket);
+    setSymbol(activeMarket === 'US' ? 'AAPL' : 'RELIANCE');
+  }, [activeMarket]);
   
   // Strategy params
   const [fastPeriod, setFastPeriod] = useState(50);

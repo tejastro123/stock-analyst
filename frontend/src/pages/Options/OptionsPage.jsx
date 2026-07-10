@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { marketApi, userApi } from '../../api';
+import useMarketStore from '../../store/marketStore';
 import ReportExporter from '../../components/ReportExporter/ReportExporter';
 import './Options.css';
 
@@ -61,9 +62,10 @@ function calculateGreeks(S, K, T, r, v, type) {
 }
 
 function OptionsPage() {
-  const [symbol, setSymbol] = useState('RELIANCE');
-  const [inputSym, setInputSym] = useState('RELIANCE');
-  const [market, setMarket] = useState('NSE');
+  const { activeMarket } = useMarketStore();
+  const [symbol, setSymbol] = useState(activeMarket === 'US' ? 'AAPL' : 'RELIANCE');
+  const [inputSym, setInputSym] = useState(activeMarket === 'US' ? 'AAPL' : 'RELIANCE');
+  const [market, setMarket] = useState(activeMarket);
   const [expiry, setExpiry] = useState('');
   
   const [data, setData] = useState(null);
@@ -90,19 +92,11 @@ function OptionsPage() {
   };
 
   useEffect(() => {
-    userApi.getSettings()
-      .then(res => {
-        if (res.data?.default_market) {
-          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
-          setMarket(m);
-          if (m === 'NSE' || m === 'BSE') {
-            setSymbol('RELIANCE');
-            setInputSym('RELIANCE');
-          }
-        }
-      })
-      .catch(() => {});
-  }, []);
+    setMarket(activeMarket);
+    const sym = activeMarket === 'US' ? 'AAPL' : 'RELIANCE';
+    setSymbol(sym);
+    setInputSym(sym);
+  }, [activeMarket]);
 
   useEffect(() => {
     fetchOptionsChain(symbol, market, null);

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { marketApi, userApi } from '../../api';
+import useMarketStore from '../../store/marketStore';
 import TradingViewScreener from '../../components/TradingViewScreener/TradingViewScreener';
 import ReportExporter from '../../components/ReportExporter/ReportExporter';
 import './Screener.css';
@@ -33,22 +34,23 @@ const SECTORS = [
   'Basic Materials', 'Real Estate', 'Utilities',
 ];
 
-function fmt(v, type = 'num') {
+function fmt(v, type = 'num', market = 'US') {
   if (v === null || v === undefined) return '—';
+  const currency = (market === 'NSE' || market === 'BSE' || market === 'IN') ? '₹' : '$';
   if (type === 'pct')    return `${(v * 100).toFixed(1)}%`;
   if (type === 'pct_raw') return `${v.toFixed(2)}%`;
   if (type === 'mc') {
-    if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
-    if (v >= 1e9)  return `$${(v / 1e9).toFixed(1)}B`;
-    if (v >= 1e6)  return `$${(v / 1e6).toFixed(0)}M`;
-    return `$${v}`;
+    if (v >= 1e12) return `${currency}${(v / 1e12).toFixed(2)}T`;
+    if (v >= 1e9)  return `${currency}${(v / 1e9).toFixed(1)}B`;
+    if (v >= 1e6)  return `${currency}${(v / 1e6).toFixed(0)}M`;
+    return `${currency}${v}`;
   }
   if (type === 'vol') {
     if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
     if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
     return `${v}`;
   }
-  if (type === 'price')  return `$${Number(v).toFixed(2)}`;
+  if (type === 'price')  return `${currency}${Number(v).toFixed(2)}`;
   return Number(v).toFixed(2);
 }
 
@@ -71,7 +73,8 @@ function FilterInput({ label, name, value, onChange, placeholder, type = 'number
 }
 
 function ScreenerPage() {
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const { activeMarket } = useMarketStore();
+  const [filters, setFilters] = useState({ ...DEFAULT_FILTERS, market: activeMarket });
   const [results, setResults] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -82,15 +85,8 @@ function ScreenerPage() {
   const [activeTab, setActiveTab] = useState('custom'); // 'custom' | 'tradingview'
 
   useEffect(() => {
-    userApi.getSettings()
-      .then(res => {
-        if (res.data?.default_market) {
-          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
-          setFilters(prev => ({ ...prev, market: m }));
-        }
-      })
-      .catch(() => {});
-  }, []);
+    setFilters(prev => ({ ...prev, market: activeMarket }));
+  }, [activeMarket]);
 
   const setFilter = (name, value) =>
     setFilters((f) => ({ ...f, [name]: value }));
@@ -175,6 +171,7 @@ function ScreenerPage() {
             >
               <option value="US">🇺🇸 US</option>
               <option value="NSE">🇮🇳 NSE India</option>
+              <option value="BSE">🇮🇳 BSE India</option>
             </select>
           </div>
           <div className="filter-field">
@@ -428,7 +425,7 @@ function ScreenerPage() {
                         <div className="scr-name">{r.name}</div>
                         {r.sector && <div className="scr-sector">{r.sector}</div>}
                       </td>
-                      <td className="font-mono fw-600">{fmt(r.price, 'price')}</td>
+                      <td className="font-mono fw-600">{fmt(r.price, 'price', filters.market)}</td>
                       <td>
                         <span className={`badge ${up ? 'badge-green' : 'badge-red'} font-mono`}>
                           {r.change_pct !== null && r.change_pct !== undefined
@@ -436,19 +433,19 @@ function ScreenerPage() {
                              : '—'}
                         </span>
                       </td>
-                      <td className="font-mono text-secondary">{fmt(r.market_cap, 'mc')}</td>
-                      <td className="font-mono text-secondary">{fmt(r.volume, 'vol')}</td>
-                      <td className="font-mono">{fmt(r.pe_trailing)}</td>
-                      <td className="font-mono">{fmt(r.pb_ratio)}</td>
+                      <td className="font-mono text-secondary">{fmt(r.market_cap, 'mc', filters.market)}</td>
+                      <td className="font-mono text-secondary">{fmt(r.volume, 'vol', filters.market)}</td>
+                      <td className="font-mono">{fmt(r.pe_trailing, 'num', filters.market)}</td>
+                      <td className="font-mono">{fmt(r.pb_ratio, 'num', filters.market)}</td>
                       <td className={`font-mono ${(r.profit_margin || 0) > 0 ? 'price-up' : 'price-down'}`}>
-                        {fmt(r.profit_margin, 'pct')}
+                        {fmt(r.profit_margin, 'pct', filters.market)}
                       </td>
                       <td className={`font-mono ${(r.revenue_growth || 0) > 0 ? 'price-up' : 'price-down'}`}>
-                        {fmt(r.revenue_growth, 'pct')}
+                        {fmt(r.revenue_growth, 'pct', filters.market)}
                       </td>
-                      <td className={`font-mono ${rsiClass}`}>{fmt(r.rsi)}</td>
-                      <td className="font-mono">{fmt(r.beta)}</td>
-                      <td className="font-mono text-secondary">{fmt(r.dividend_yield, 'pct')}</td>
+                      <td className={`font-mono ${rsiClass}`}>{fmt(r.rsi, 'num', filters.market)}</td>
+                      <td className="font-mono">{fmt(r.beta, 'num', filters.market)}</td>
+                      <td className="font-mono text-secondary">{fmt(r.dividend_yield, 'pct', filters.market)}</td>
                     </tr>
                   );
                 })}

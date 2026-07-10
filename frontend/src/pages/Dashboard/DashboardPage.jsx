@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import useMarketStore from '../../store/marketStore';
 import { marketApi, userApi } from '../../api';
 import SectorHeatmap from '../../components/SectorHeatmap/SectorHeatmap';
 import MarketBreadth from '../../components/MarketBreadth/MarketBreadth';
@@ -15,45 +16,39 @@ const IN_MARKET_BAR = ['^NSEI', '^BSESN', 'RELIANCE', 'TCS', 'INFY', 'HDFCBANK',
 const US_DEFAULT_SYMBOLS = ['AAPL', 'TSLA', 'NVDA', 'GOOGL', 'MSFT', 'AMZN', 'META'];
 const IN_DEFAULT_SYMBOLS = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'SBIN', 'ICICIBANK', 'LT'];
 
-function fmt(v, type = 'num') {
+function fmt(v, type = 'num', market = 'US') {
   if (v === null || v === undefined) return '—';
+  const currency = (market === 'NSE' || market === 'BSE' || market === 'IN') ? '₹' : '$';
   if (type === 'pct') return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
   if (type === 'mc') {
-    if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
-    if (v >= 1e9)  return `$${(v / 1e9).toFixed(1)}B`;
-    return `$${(v / 1e6).toFixed(0)}M`;
+    if (v >= 1e12) return `${currency}${(v / 1e12).toFixed(2)}T`;
+    if (v >= 1e9)  return `${currency}${(v / 1e9).toFixed(1)}B`;
+    return `${currency}${(v / 1e6).toFixed(0)}M`;
   }
   if (type === 'vol') {
     if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
     if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
     return `${v}`;
   }
-  if (type === 'price') return `$${Number(v).toFixed(2)}`;
+  if (type === 'price') return `${currency}${Number(v).toFixed(2)}`;
   return Number(v).toFixed(2);
 }
 
 function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { activeMarket: defaultMarket } = useMarketStore();
   const [watchlist, setWatchlist] = useState([]);
   const [marketBar, setMarketBar] = useState([]);
   const [wlLoading, setWlLoading] = useState(true);
   const [mbLoading, setMbLoading] = useState(true);
   const [newSymbol, setNewSymbol] = useState('');
+  const [newSymbolMarket, setNewSymbolMarket] = useState('US');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [defaultMarket, setDefaultMarket] = useState('NSE');
 
-  // Load User settings to set default market region
   useEffect(() => {
-    userApi.getSettings()
-      .then(res => {
-        if (res.data?.default_market) {
-          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
-          setDefaultMarket(m);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    setNewSymbolMarket(defaultMarket || 'US');
+  }, [defaultMarket]);
 
   // Fetch Market Bar quotes dynamically based on default market
   useEffect(() => {
@@ -69,8 +64,8 @@ function DashboardPage() {
           const q = quotes[sym] || {};
           return {
             label: sym,
-            value: q.price ? fmt(q.price) : '—',
-            change: q.change_pct ? fmt(q.change_pct, 'pct') : '—',
+            value: q.price ? fmt(q.price, 'price', barMkt) : '—',
+            change: q.change_pct ? fmt(q.change_pct, 'pct', barMkt) : '—',
             up: (q.change_pct || 0) >= 0,
           };
         });
@@ -89,7 +84,7 @@ function DashboardPage() {
       let watchlistSymbols = [];
       const isInd = defaultMarket === 'NSE' || defaultMarket === 'BSE';
       const fallbackSyms = isInd ? IN_DEFAULT_SYMBOLS : US_DEFAULT_SYMBOLS;
-      const fallbackMkt = isInd ? 'NSE' : 'US';
+      const fallbackMkt = defaultMarket || 'US';
 
       try {
         const wlRes = await userApi.getWatchlists();
@@ -137,11 +132,11 @@ function DashboardPage() {
           sym,
           market: m,
           name: q.name || sym,
-          price: q.price ? fmt(q.price, 'price') : '—',
-          chg: q.change ? fmt(q.change) : '—',
-          pct: q.change_pct ? fmt(q.change_pct, 'pct') : '—',
+          price: q.price ? fmt(q.price, 'price', m) : '—',
+          chg: q.change ? fmt(q.change, 'num', m) : '—',
+          pct: q.change_pct ? fmt(q.change_pct, 'pct', m) : '—',
           up: (q.change_pct || 0) >= 0,
-          vol: q.volume ? fmt(q.volume, 'vol') : '—',
+          vol: q.volume ? fmt(q.volume, 'vol', m) : '—',
         };
       });
       setWatchlist(items);
@@ -170,7 +165,7 @@ function DashboardPage() {
         const createRes = await userApi.createWatchlist('Default');
         activeWl = createRes.data;
       }
-      const targetMkt = defaultMarket || 'US';
+      const targetMkt = newSymbolMarket || 'US';
       await userApi.addSymbol(activeWl.id, newSymbol.toUpperCase(), targetMkt);
       setNewSymbol('');
       setShowAddForm(false);
@@ -239,6 +234,16 @@ function DashboardPage() {
                   onChange={e => setNewSymbol(e.target.value.toUpperCase())}
                   autoFocus
                 />
+                <select
+                  className="form-input"
+                  style={{ width: 80, height: 28, fontSize: 12, padding: '0 4px', background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', borderRadius: '3px' }}
+                  value={newSymbolMarket}
+                  onChange={e => setNewSymbolMarket(e.target.value)}
+                >
+                  <option value="US">🇺🇸 US</option>
+                  <option value="NSE">🇮🇳 NSE</option>
+                  <option value="BSE">🇮🇳 BSE</option>
+                </select>
                 <button type="submit" className="btn btn-primary btn-sm">ADD</button>
               </form>
             )}

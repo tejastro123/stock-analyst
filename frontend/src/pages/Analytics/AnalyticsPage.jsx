@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { portfolioApi, marketApi } from '../../api';
+import useMarketStore from '../../store/marketStore';
 import './Analytics.css';
 
 const API_BASE_URL = 'http://localhost:3001/api';
@@ -124,6 +125,8 @@ function AnalyticsLineChart({ data, xKey, yKey, strokeColor = '#00f0ff', valuePr
 }
 
 function AnalyticsPage() {
+  const { activeMarket } = useMarketStore();
+  const currencySymbol = (activeMarket === 'NSE' || activeMarket === 'BSE') ? '₹' : '$';
   const [portfolioData, setPortfolioData] = useState(null);
   const [historicalRisk, setHistoricalRisk] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -168,7 +171,7 @@ function AnalyticsPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [activeMarket]);
 
   const handleGenerateAdvisory = async () => {
     if (!portfolioData) return;
@@ -283,7 +286,7 @@ function AnalyticsPage() {
               <div className="risk-card">
                 <div className="risk-card-label">Value at Risk (95% 1D)</div>
                 <div className="risk-card-value price-down">
-                  ${riskMetrics?.value_at_risk.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {currencySymbol}{riskMetrics?.value_at_risk.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </div>
               </div>
               <div className="risk-card">
@@ -320,7 +323,7 @@ function AnalyticsPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted">Historical VaR:</span>
-                      <span className="price-down">${historicalRisk.summary.value_at_risk_95.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                      <span className="price-down">{currencySymbol}{historicalRisk.summary.value_at_risk_95.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     </div>
                   </div>
                 </div>
@@ -364,7 +367,7 @@ function AnalyticsPage() {
             {/* Chart: Historical Equity Curve */}
             <div className="panel">
               <div className="panel-header">
-                <span className="panel-title">1-Year Portfolio Value Simulation ($10,000 Starting Principal)</span>
+                <span className="panel-title">1-Year Portfolio Value Simulation ({currencySymbol}10,000 Starting Principal)</span>
               </div>
               <div className="panel-body" style={{ height: '220px', padding: '8px' }}>
                 {histLoading ? (
@@ -377,6 +380,7 @@ function AnalyticsPage() {
                     xKey="date"
                     yKey="value"
                     strokeColor="#00f0ff"
+                    valuePrefix={currencySymbol}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted font-mono text-xxs">

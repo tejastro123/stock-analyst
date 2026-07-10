@@ -28,7 +28,7 @@ function SettingsPage() {
             setTheme(data.theme);
             document.documentElement.setAttribute('data-theme', data.theme);
           }
-          if (data.default_market) setDefaultMarket(data.default_market);
+          if (data.default_market) setDefaultMarket(data.default_market === 'IN' ? 'NSE' : data.default_market);
           if (data.currency) setCurrency(data.currency);
           if (data.timezone) setTimezone(data.timezone);
           if (data.layout_config) setLayoutConfig(data.layout_config);
@@ -124,7 +124,8 @@ function SettingsPage() {
                     <select className="form-input" value={defaultMarket} onChange={e => setDefaultMarket(e.target.value)}>
                       <option value="US">US Markets (NASDAQ, NYSE)</option>
                       <option value="EU">European Markets (LSE, Euronext)</option>
-                      <option value="IN">Indian Markets (NSE, BSE)</option>
+                      <option value="NSE">Indian Markets - NSE</option>
+                      <option value="BSE">Indian Markets - BSE</option>
                     </select>
                   </div>
 

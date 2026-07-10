@@ -1,10 +1,14 @@
 import React from 'react';
+import useMarketStore from '../../store/marketStore';
 import TradingViewIFrameWidget from '../TradingViewIFrameWidget';
 
 function SectorHeatmap() {
+  const { activeMarket } = useMarketStore();
+  const isInd = activeMarket === 'NSE' || activeMarket === 'BSE';
+
   const config = {
     "exchanges": [],
-    "dataSource": "SPX500",
+    "dataSource": isInd ? "NIFTY50" : "SPX500",
     "grouping": "sector",
     "sizes": "market_cap",
     "hasTopBar": false,
@@ -20,7 +24,7 @@ function SectorHeatmap() {
   };
 
   return (
-    <div style={{ height: "400px", width: "100%" }} id="sector-heatmap">
+    <div key={activeMarket} style={{ height: "400px", width: "100%" }} id="sector-heatmap">
       <TradingViewIFrameWidget
         scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
         config={config}

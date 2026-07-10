@@ -241,7 +241,10 @@ def _fetch_stock_data(symbol: str, market: str, include_rsi: bool = False) -> di
 def run_screener(filters: ScreenerFilters):
     """Run screener against universe with given filters."""
     market   = filters.market.upper()
-    universe = filters.symbols or (NSE_UNIVERSE if market == "NSE" else US_UNIVERSE)
+    if market in ("NSE", "BSE"):
+        universe = filters.symbols or NSE_UNIVERSE
+    else:
+        universe = filters.symbols or US_UNIVERSE
 
     # Check screener cache
     import json
@@ -293,6 +296,6 @@ def run_screener(filters: ScreenerFilters):
 def get_universe(market: str = "US"):
     """Return the default symbol universe for a market."""
     m = market.upper()
-    if m == "NSE":
-        return {"market": "NSE", "symbols": NSE_UNIVERSE, "count": len(NSE_UNIVERSE)}
+    if m in ("NSE", "BSE"):
+        return {"market": m, "symbols": NSE_UNIVERSE, "count": len(NSE_UNIVERSE)}
     return {"market": "US", "symbols": US_UNIVERSE, "count": len(US_UNIVERSE)}

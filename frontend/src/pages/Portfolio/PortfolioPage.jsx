@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { portfolioApi, marketApi, userApi } from '../../api';
 import useAuthStore from '../../store/authStore';
+import useMarketStore from '../../store/marketStore';
 import ReportExporter from '../../components/ReportExporter/ReportExporter';
 import './Portfolio.css';
 
@@ -79,6 +80,8 @@ function DonutChart({ data }) {
 
 function PortfolioPage() {
   const { user } = useAuthStore();
+  const { activeMarket } = useMarketStore();
+  const currencySymbol = (activeMarket === 'NSE' || activeMarket === 'BSE') ? '₹' : '$';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -138,15 +141,8 @@ function PortfolioPage() {
 
   useEffect(() => {
     fetchPortfolio();
-    userApi.getSettings()
-      .then(res => {
-        if (res.data?.default_market) {
-          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
-          setMarket(m);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    setMarket(activeMarket);
+  }, [activeMarket]);
 
   const handleAddPosition = async (e) => {
     e.preventDefault();
@@ -227,10 +223,12 @@ function PortfolioPage() {
     }
   };
 
-  const fmt = (val, type = 'price') => {
+  const fmt = (val, type = 'price', posMarket = 'US') => {
     if (val === null || val === undefined) return '—';
     if (type === 'price') {
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+      const isInd = posMarket === 'NSE' || posMarket === 'BSE' || posMarket === 'IN';
+      const currency = isInd ? 'INR' : 'USD';
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(val);
     }
     if (type === 'pct') {
       return `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`;
@@ -255,22 +253,22 @@ function PortfolioPage() {
         <div className="portfolio-summary-bar">
           <div className="summary-card">
             <span className="summary-label">PORTFOLIO VALUE</span>
-            <span className="summary-val font-mono">{fmt(data.summary.total_value)}</span>
+            <span className="summary-val font-mono">{fmt(data.summary.total_value, 'price', market)}</span>
           </div>
           <div className="summary-card">
             <span className="summary-label">TOTAL COST BASIS</span>
-            <span className="summary-val font-mono text-secondary">{fmt(data.summary.total_cost)}</span>
+            <span className="summary-val font-mono text-secondary">{fmt(data.summary.total_cost, 'price', market)}</span>
           </div>
           <div className="summary-card">
             <span className="summary-label">UNREALIZED P&L</span>
             <span className={`summary-val font-mono ${data.summary.total_pnl >= 0 ? 'price-up' : 'price-down'}`}>
-              {fmt(data.summary.total_pnl)} ({fmt(data.summary.total_pnl_pct, 'pct')})
+              {fmt(data.summary.total_pnl, 'price', market)} ({fmt(data.summary.total_pnl_pct, 'pct')})
             </span>
           </div>
           <div className="summary-card">
             <span className="summary-label">DAILY P&L</span>
             <span className={`summary-val font-mono ${data.summary.daily_pnl >= 0 ? 'price-up' : 'price-down'}`}>
-              {fmt(data.summary.daily_pnl)}
+              {fmt(data.summary.daily_pnl, 'price', market)}
             </span>
           </div>
         </div>
@@ -392,16 +390,16 @@ function PortfolioPage() {
                           <td>
                             {isEditing ? (
                               <input type="number" step="any" className="form-input cell-input" value={editCost} onChange={e => setEditCost(e.target.value)} style={{ width: '70px' }} />
-                            ) : fmt(pos.avg_cost)}
+                            ) : fmt(pos.avg_cost, 'price', pos.market)}
                           </td>
-                          <td className="fw-600">{fmt(pos.current_price)}</td>
-                          <td className="text-secondary">{fmt(pos.cost_basis)}</td>
-                          <td className="fw-600">{fmt(pos.market_value)}</td>
+                          <td className="fw-600">{fmt(pos.current_price, 'price', pos.market)}</td>
+                          <td className="text-secondary">{fmt(pos.cost_basis, 'price', pos.market)}</td>
+                          <td className="fw-600">{fmt(pos.market_value, 'price', pos.market)}</td>
                           <td className={up ? 'price-up' : 'price-down'}>
-                            {fmt(pos.unrealized_pnl)} ({fmt(pos.unrealized_pnl_pct, 'pct')})
+                            {fmt(pos.unrealized_pnl, 'price', pos.market)} ({fmt(pos.unrealized_pnl_pct, 'pct')})
                           </td>
                           <td className={dailyUp ? 'price-up' : 'price-down'}>
-                            {fmt(pos.daily_pnl)}
+                            {fmt(pos.daily_pnl, 'price', pos.market)}
                           </td>
                           <td className="text-muted">{pos.sector || '—'}</td>
                           <td className="text-muted font-mono">{pos.beta ? pos.beta.toFixed(2) : '1.00'}</td>
@@ -487,7 +485,7 @@ function PortfolioPage() {
                               </div>
                               <div className="flex justify-between text-muted" style={{ fontSize: 9, paddingLeft: 14 }}>
                                 <span>Market Value:</span>
-                                <span>{fmt(item.amount)}</span>
+                                <span>{fmt(item.amount, 'price', market)}</span>
                               </div>
                             </div>
                           );
@@ -600,9 +598,9 @@ function PortfolioPage() {
                   );
                 })()}
                 <div className="flex justify-between font-mono" style={{ fontSize: '9px', color: '#4b5563', marginTop: '4px' }}>
-                  <span>START: ${historyData[0]?.value?.toFixed(0) || '—'}</span>
+                  <span>START: {currencySymbol}{historyData[0]?.value?.toFixed(0) || '—'}</span>
                   <span style={{ color: (historyData[historyData.length-1]?.value || 0) >= (historyData[0]?.value || 0) ? '#00ff88' : '#ff3b30' }}>
-                    NOW: ${historyData[historyData.length-1]?.value?.toFixed(0) || '—'}
+                    NOW: {currencySymbol}{historyData[historyData.length-1]?.value?.toFixed(0) || '—'}
                   </span>
                 </div>
               </div>

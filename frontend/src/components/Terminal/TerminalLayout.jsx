@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { userApi } from '../../api';
 import TradingViewTickerTape from '../TradingViewTickerTape/TradingViewTickerTape';
+import useMarketStore from '../../store/marketStore';
 import ErrorBoundary from '../ErrorBoundary';
 import './Terminal.css';
 
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
 function TerminalLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const { activeMarket, setActiveMarket } = useMarketStore();
   const navigate = useNavigate();
   const now = new Date();
 
@@ -35,11 +37,15 @@ function TerminalLayout() {
   };
 
   useEffect(() => {
-    // Load and apply theme setting on mount
+    // Load and apply theme and default market settings on mount
     userApi.getSettings()
       .then(res => {
         if (res.data?.theme) {
           document.documentElement.setAttribute('data-theme', res.data.theme);
+        }
+        if (res.data?.default_market && !localStorage.getItem('qd_active_market')) {
+          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
+          setActiveMarket(m);
         }
       })
       .catch(() => {});
@@ -59,6 +65,30 @@ function TerminalLayout() {
         <div className="topbar-right">
           <div className="topbar-clock font-mono text-xs text-secondary">
             {now.toLocaleTimeString('en-US', { hour12: false })} ET
+          </div>
+          <div className="topbar-market-selector" style={{ display: 'flex', alignItems: 'center', gap: '4px', borderLeft: '1px solid var(--border-primary)', paddingLeft: '12px' }}>
+            <span className="font-mono text-xs text-muted" style={{ fontSize: '10px' }}>REGION:</span>
+            <select 
+              value={activeMarket} 
+              onChange={(e) => setActiveMarket(e.target.value)}
+              className="form-input" 
+              style={{ 
+                height: '22px', 
+                padding: '0 4px', 
+                fontSize: '10px', 
+                width: '80px', 
+                background: 'var(--bg-primary)', 
+                border: '1px solid var(--border-primary)', 
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-mono)',
+                borderRadius: '3px',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="NSE">🇮🇳 NSE</option>
+              <option value="BSE">🇮🇳 BSE</option>
+              <option value="US">🇺🇸 US</option>
+            </select>
           </div>
           <div className="topbar-market-status">
             <span className="status-dot status-dot--open pulse" />

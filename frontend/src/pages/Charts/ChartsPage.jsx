@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { marketApi, userApi } from '../../api';
+import useMarketStore from '../../store/marketStore';
 import TradingViewGauge from '../../components/TradingViewGauge/TradingViewGauge';
 import TradingViewProfile from '../../components/TradingViewProfile/TradingViewProfile';
 import ReportExporter from '../../components/ReportExporter/ReportExporter';
@@ -49,34 +50,25 @@ function TradingViewChart({ symbol, market }) {
 
 
 function ChartsPage() {
+  const { activeMarket } = useMarketStore();
   const queryParams = new URLSearchParams(window.location.search);
-  const initialSym = (queryParams.get('sym') || 'RELIANCE').toUpperCase();
-  const initialMkt = (queryParams.get('market') || 'NSE').toUpperCase();
+  const qSym = queryParams.get('sym');
+  const qMkt = queryParams.get('market');
 
-  const [symbol, setSymbol] = useState(initialSym);
-  const [inputSym, setInputSym] = useState(initialSym);
-  const [market, setMarket] = useState(initialMkt);
+  const [symbol, setSymbol] = useState((qSym || (activeMarket === 'US' ? 'AAPL' : 'RELIANCE')).toUpperCase());
+  const [inputSym, setInputSym] = useState((qSym || (activeMarket === 'US' ? 'AAPL' : 'RELIANCE')).toUpperCase());
+  const [market, setMarket] = useState((qMkt || activeMarket).toUpperCase());
   const [quote, setQuote] = useState(null);
 
-  // Load User settings to set default market region if not specified in URL query
   useEffect(() => {
-    const qSym = queryParams.get('sym');
-    const qMkt = queryParams.get('market');
-    if (!qSym && !qMkt) {
-      userApi.getSettings()
-        .then(res => {
-          if (res.data?.default_market) {
-            const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
-            setMarket(m);
-            if (m === 'NSE' || m === 'BSE') {
-              setSymbol('RELIANCE');
-              setInputSym('RELIANCE');
-            }
-          }
-        })
-        .catch(() => {});
+    const qSymInner = queryParams.get('sym');
+    const qMktInner = queryParams.get('market');
+    if (!qSymInner && !qMktInner) {
+      setMarket(activeMarket);
+      setSymbol(activeMarket === 'US' ? 'AAPL' : 'RELIANCE');
+      setInputSym(activeMarket === 'US' ? 'AAPL' : 'RELIANCE');
     }
-  }, []);
+  }, [activeMarket]);
 
   // Sync state if URL query changes
   useEffect(() => {

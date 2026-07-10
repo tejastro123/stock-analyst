@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { alertsApi, userApi } from '../../api';
 import useAuthStore from '../../store/authStore';
+import useMarketStore from '../../store/marketStore';
 import './Alerts.css';
 
 function AlertsPage() {
   const { user } = useAuthStore();
+  const { activeMarket } = useMarketStore();
   const [alerts, setAlerts] = useState([]);
   const [symbol, setSymbol] = useState('');
   const [alertType, setAlertType] = useState('price_above');
   const [threshold, setThreshold] = useState('');
   const [message, setMessage] = useState('');
-  const [market, setMarket] = useState('NSE');
-  const [currencySymbol, setCurrencySymbol] = useState('₹');
+  const [market, setMarket] = useState(activeMarket);
+  const [currencySymbol, setCurrencySymbol] = useState(activeMarket === 'US' ? '$' : '₹');
   
   // Real-time notifications
   const [notifications, setNotifications] = useState([]);
@@ -96,16 +98,6 @@ function AlertsPage() {
     fetchAlerts();
     connectWebSocket();
 
-    // Fetch user settings to default the market and currency
-    userApi.getSettings()
-      .then(res => {
-        const settings = res.data;
-        const m = settings.default_market === 'IN' ? 'NSE' : settings.default_market;
-        setMarket(m);
-        setCurrencySymbol(settings.currency === 'INR' ? '₹' : '$');
-      })
-      .catch(err => console.error('Failed to fetch settings in AlertsPage:', err));
-
     if (Notification.permission === 'default') {
       Notification.requestPermission();
     }
@@ -118,6 +110,12 @@ function AlertsPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    setMarket(activeMarket);
+    setCurrencySymbol(activeMarket === 'US' ? '$' : '₹');
+    setSymbol(activeMarket === 'US' ? 'AAPL' : 'RELIANCE');
+  }, [activeMarket]);
 
   const handleCreateAlert = (e) => {
     e.preventDefault();
