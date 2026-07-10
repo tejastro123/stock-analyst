@@ -39,6 +39,27 @@
       "dist/**/*",
       "electron-main.cjs",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!node_modules/.cache/**/*",
+          "!**/*.log"
+        ]
+      },
+      {
+        "from": "../py-service",
+        "to": "py-service",
+        "filter": [
+          "**/*",
+          "!.venv/**/*",
+          "!venv/**/*",
+          "!__pycache__/**/*"
+        ]
+      }
     ]
   }
 }
