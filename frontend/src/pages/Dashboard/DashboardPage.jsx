@@ -9,9 +9,11 @@ import TradingViewMovers from '../../components/TradingViewMovers/TradingViewMov
 import ReportExporter from '../../components/ReportExporter/ReportExporter';
 import './Dashboard.css';
 
-const DEFAULT_SYMBOLS = ['AAPL', 'TSLA', 'NVDA', 'GOOGL', 'MSFT', 'AMZN', 'META'];
+const US_MARKET_BAR = ['SPY', 'QQQ', 'IWM', 'DIA', 'GLD', 'USO', 'TLT'];
+const IN_MARKET_BAR = ['^NSEI', '^BSESN', 'RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'SBIN'];
 
-const MARKET_BAR_SYMBOLS = ['SPY', 'QQQ', 'IWM', 'DIA', 'GLD', 'USO', 'TLT'];
+const US_DEFAULT_SYMBOLS = ['AAPL', 'TSLA', 'NVDA', 'GOOGL', 'MSFT', 'AMZN', 'META'];
+const IN_DEFAULT_SYMBOLS = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'SBIN', 'ICICIBANK', 'LT'];
 
 function fmt(v, type = 'num') {
   if (v === null || v === undefined) return '—';
@@ -32,19 +34,38 @@ function fmt(v, type = 'num') {
 
 function DashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [watchlist, setWatchlist] = useState([]);
   const [marketBar, setMarketBar] = useState([]);
   const [wlLoading, setWlLoading] = useState(true);
   const [mbLoading, setMbLoading] = useState(true);
   const [newSymbol, setNewSymbol] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [defaultMarket, setDefaultMarket] = useState('NSE');
 
-  // Fetch Market Bar quotes
+  // Load User settings to set default market region
   useEffect(() => {
-    marketApi.getBatchQuotes(MARKET_BAR_SYMBOLS)
+    userApi.getSettings()
+      .then(res => {
+        if (res.data?.default_market) {
+          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
+          setDefaultMarket(m);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch Market Bar quotes dynamically based on default market
+  useEffect(() => {
+    const isInd = defaultMarket === 'NSE' || defaultMarket === 'BSE';
+    const barSyms = isInd ? IN_MARKET_BAR : US_MARKET_BAR;
+    const barMkt = isInd ? 'NSE' : 'US';
+
+    setMbLoading(true);
+    marketApi.getBatchQuotes(barSyms, barMkt)
       .then(res => {
         const quotes = res.data.quotes || {};
-        const formatted = MARKET_BAR_SYMBOLS.map(sym => {
+        const formatted = barSyms.map(sym => {
           const q = quotes[sym] || {};
           return {
             label: sym,
@@ -57,31 +78,64 @@ function DashboardPage() {
       })
       .catch(() => {})
       .finally(() => setMbLoading(false));
-  }, []);
+  }, [defaultMarket]);
 
 
 
-  // Load user watchlists and fetch quote data
+  // Load user watchlists and fetch quote data dynamically per market
   const loadWatchlistData = async () => {
     setWlLoading(true);
     try {
-      let syms = DEFAULT_SYMBOLS;
+      let watchlistSymbols = [];
+      const isInd = defaultMarket === 'NSE' || defaultMarket === 'BSE';
+      const fallbackSyms = isInd ? IN_DEFAULT_SYMBOLS : US_DEFAULT_SYMBOLS;
+      const fallbackMkt = isInd ? 'NSE' : 'US';
+
       try {
         const wlRes = await userApi.getWatchlists();
         const activeWl = wlRes.data[0];
         if (activeWl && activeWl.symbols && activeWl.symbols.length > 0) {
-          syms = activeWl.symbols.map(s => s.symbol);
+          watchlistSymbols = activeWl.symbols;
+        } else {
+          watchlistSymbols = fallbackSyms.map(sym => ({ symbol: sym, market: fallbackMkt }));
         }
       } catch (err) {
         console.warn('Watchlist fetch failed, falling back to defaults', err);
+        watchlistSymbols = fallbackSyms.map(sym => ({ symbol: sym, market: fallbackMkt }));
       }
 
-      const quoteRes = await marketApi.getBatchQuotes(syms);
-      const quotes = quoteRes.data.quotes || {};
-      const items = syms.map(sym => {
-        const q = quotes[sym.toUpperCase()] || {};
+      // Group symbols by market for parallel querying
+      const marketGroups = {};
+      watchlistSymbols.forEach(s => {
+        const m = s.market || fallbackMkt;
+        if (!marketGroups[m]) marketGroups[m] = [];
+        marketGroups[m].push(s.symbol);
+      });
+
+      const promises = Object.keys(marketGroups).map(async (m) => {
+        try {
+          const res = await marketApi.getBatchQuotes(marketGroups[m], m);
+          return { market: m, quotes: res.data.quotes || {} };
+        } catch {
+          return { market: m, quotes: {} };
+        }
+      });
+
+      const results = await Promise.all(promises);
+      const quotesMap = {};
+      results.forEach(res => {
+        Object.keys(res.quotes).forEach(sym => {
+          quotesMap[`${sym.toUpperCase()}:${res.market}`] = res.quotes[sym];
+        });
+      });
+
+      const items = watchlistSymbols.map(s => {
+        const sym = s.symbol.toUpperCase();
+        const m = s.market || fallbackMkt;
+        const q = quotesMap[`${sym}:${m}`] || {};
         return {
-          sym: sym.toUpperCase(),
+          sym,
+          market: m,
           name: q.name || sym,
           price: q.price ? fmt(q.price, 'price') : '—',
           chg: q.change ? fmt(q.change) : '—',
@@ -100,10 +154,14 @@ function DashboardPage() {
 
   useEffect(() => {
     loadWatchlistData();
-  }, []);
+  }, [defaultMarket]);
 
   const handleAddSymbol = async (e) => {
     e.preventDefault();
+    if (user?.role === 'viewer') {
+      alert('Permission Denied: Viewer role cannot add symbols.');
+      return;
+    }
     if (!newSymbol) return;
     try {
       const wlRes = await userApi.getWatchlists();
@@ -112,7 +170,8 @@ function DashboardPage() {
         const createRes = await userApi.createWatchlist('Default');
         activeWl = createRes.data;
       }
-      await userApi.addSymbol(activeWl.id, newSymbol.toUpperCase(), 'US');
+      const targetMkt = defaultMarket || 'US';
+      await userApi.addSymbol(activeWl.id, newSymbol.toUpperCase(), targetMkt);
       setNewSymbol('');
       setShowAddForm(false);
       loadWatchlistData();
@@ -133,7 +192,9 @@ function DashboardPage() {
       {/* ── Market Summary Bar ── */}
       <div className="market-bar" id="market-bar">
         {mbLoading ? (
-          <span className="font-mono text-xs text-muted" style={{ padding: 10 }}>Loading market data...</span>
+          Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="market-bar-item shimmer" style={{ minWidth: '80px', height: '40px', borderRadius: '3px', opacity: 0.6 }} />
+          ))
         ) : (
           marketBar.map((m) => (
             <div key={m.label} className="market-bar-item">
@@ -159,9 +220,11 @@ function DashboardPage() {
               <span className="panel-title">My Watchlist</span>
               <div className="flex gap-2">
                 <span className="badge badge-green">LIVE</span>
-                <button id="btn-add-symbol" className="btn btn-ghost btn-sm" onClick={() => setShowAddForm(!showAddForm)}>
-                  {showAddForm ? 'CANCEL' : '+ ADD'}
-                </button>
+                {user?.role !== 'viewer' && (
+                  <button id="btn-add-symbol" className="btn btn-ghost btn-sm" onClick={() => setShowAddForm(!showAddForm)}>
+                    {showAddForm ? 'CANCEL' : '+ ADD'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -182,8 +245,18 @@ function DashboardPage() {
 
             <div className="watchlist-table-wrap">
               {wlLoading ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120 }}>
-                  <span className="spinner" style={{ width: 20, height: 20 }} />
+                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex justify-between items-center">
+                      <div className="flex flex-col gap-1" style={{ width: '40%' }}>
+                        <div className="skeleton-text shimmer" style={{ width: '60%', height: '11px' }} />
+                        <div className="skeleton-text shimmer" style={{ width: '90%', height: '8px', opacity: 0.5 }} />
+                      </div>
+                      <div className="shimmer skeleton-rect" style={{ width: '20%', height: '10px' }} />
+                      <div className="shimmer skeleton-rect" style={{ width: '15%', height: '14px', borderRadius: '3px' }} />
+                      <div className="shimmer skeleton-rect" style={{ width: '15%', height: '10px' }} />
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <table className="watchlist-table">

@@ -1,0 +1,69 @@
+.alerts-root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  padding: 12px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  gap: 12px;
+  background-color: #06060c;
+}
+
+.alerts-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+  flex-grow: 1;
+}
+
+.alerts-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alerts-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alert-item-card {
+  background: #11111b;
+  border: 1px solid #1f2937;
+  border-radius: 4px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: monospace;
+}
+
+.alert-item-card.triggered {
+  border-left: 3px stroke #ff3b30;
+  background: rgba(255, 59, 48, 0.03);
+}
+
+.alert-item-card.active {
+  border-left: 3px stroke #00ff88;
+}
+
+.notifications-box {
+  background: rgba(0, 255, 136, 0.05);
+  border: 1px solid #00ff88;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-family: monospace;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

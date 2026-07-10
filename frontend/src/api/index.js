@@ -52,6 +52,16 @@ export const marketApi = {
 
   // Health
   pyHealth: () => api.get('/market/py-health'),
+
+  // Backtest
+  runBacktest: (data) => api.post('/market/backtest', data),
+
+  // Macro
+  getMacroCurve: () => api.get('/market/macro/curve'),
+  getMacroSeries: (seriesId, calculateYoY = false) => api.get(`/market/macro/series/${seriesId}?calculate_yoy=${calculateYoY}`),
+  searchMacro: (query) => api.get(`/market/macro/search?query=${encodeURIComponent(query)}`),
+  getNews: (symbol, market = 'US') => api.get(`/market/news/${symbol}?market=${market}`),
+  getHistoricalRisk: (positions) => api.post('/market/risk/historical', { positions }),
 };
 
 export const portfolioApi = {
@@ -59,6 +69,13 @@ export const portfolioApi = {
   addPosition: (data) => api.post('/portfolio/position', data),
   updatePosition: (id, data) => api.put(`/portfolio/position/${id}`, data),
   deletePosition: (id) => api.delete(`/portfolio/position/${id}`),
+};
+
+export const alertsApi = {
+  getAlerts: () => api.get('/alerts'),
+  createAlert: (data) => api.post('/alerts', data),
+  toggleAlert: (id) => api.post(`/alerts/${id}/toggle`),
+  deleteAlert: (id) => api.delete(`/alerts/${id}`),
 };
 
 export const reportsApi = {

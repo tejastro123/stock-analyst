@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './store/authStore';
+import { ToastProvider } from './components/Toast/Toast';
 
 import LoginPage from './pages/Auth/LoginPage';
 import TerminalLayout from './components/Terminal/TerminalLayout';
@@ -13,6 +14,12 @@ import PortfolioPage from './pages/Portfolio/PortfolioPage';
 import OptionsPage from './pages/Options/OptionsPage';
 import PlaceholderPage from './components/PlaceholderPage';
 import ResearchPage from './pages/Research/ResearchPage';
+import MacroPage from './pages/Macro/MacroPage';
+import AlertsPage from './pages/Alerts/AlertsPage';
+import BacktesterPage from './pages/Backtester/BacktesterPage';
+import NewsPage from './pages/News/NewsPage';
+import AnalyticsPage from './pages/Analytics/AnalyticsPage';
+import SettingsPage from './pages/Settings/SettingsPage';
 
 function PrivateRoute({ children }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -46,8 +53,12 @@ function App() {
     init();
   }, [init]);
 
+  const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+  const Router = isElectron ? HashRouter : BrowserRouter;
+
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <ToastProvider>
       <Routes>
         {/* Auth */}
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
@@ -66,19 +77,20 @@ function App() {
           <Route path="charts"     element={<ChartsPage />} />
           <Route path="crypto"     element={<CryptoPage />} />
           <Route path="forex"      element={<ForexPage />} />
-          <Route path="macro"      element={<PlaceholderPage title="Global Macro & FRED"     code="MCRO" />} />
-          <Route path="news"       element={<PlaceholderPage title="News & Sentiment"        code="NEWS" />} />
-          <Route path="alerts"     element={<PlaceholderPage title="Alert Engine"            code="ALRT" />} />
+          <Route path="macro"      element={<MacroPage />} />
+          <Route path="news"       element={<NewsPage />} />
+          <Route path="alerts"     element={<AlertsPage />} />
           <Route path="research"   element={<ResearchPage />} />
-          <Route path="analytics"  element={<PlaceholderPage title="Risk Analytics"          code="RISK" />} />
-          <Route path="backtester" element={<PlaceholderPage title="Strategy Backtester"     code="BKTS" />} />
-          <Route path="settings"   element={<PlaceholderPage title="Settings"                code="SETT" />} />
+          <Route path="analytics"  element={<AnalyticsPage />} />
+          <Route path="backtester" element={<BacktesterPage />} />
+          <Route path="settings"   element={<SettingsPage />} />
         </Route>
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
-    </BrowserRouter>
+      </ToastProvider>
+    </Router>
   );
 }
 

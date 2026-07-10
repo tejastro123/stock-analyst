@@ -1,0 +1,93 @@
+.backtest-root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  padding: 12px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  gap: 12px;
+  background-color: #06060c;
+}
+
+.backtest-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+  flex-grow: 1;
+  min-height: 600px;
+}
+
+.backtest-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.backtest-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.backtest-results-grid {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 12px;
+  height: 100%;
+}
+
+.backtest-metrics-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.metric-card {
+  background: #11111b;
+  border: 1px solid #1f2937;
+  padding: 10px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.metric-card-label {
+  font-size: 8px;
+  color: #848e9c;
+  text-transform: uppercase;
+}
+
+.metric-card-value {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.chart-panel-body {
+  height: 240px;
+}
+
+.trades-table-panel {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.trades-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.trades-table th, .trades-table td {
+  padding: 4px 6px;
+  font-size: 9px;
+  border-bottom: 1px solid #1f2937;
+}
+
+.trades-table th {
+  background-color: #11111b;
+  color: #848e9c;
+  text-align: left;
+}
+
+.trade-profit {
+  font-weight: bold;
+}

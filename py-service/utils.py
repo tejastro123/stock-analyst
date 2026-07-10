@@ -35,7 +35,7 @@ def safe_int(v: Any) -> int | None:
 def normalize_symbol(symbol: str, market: str = "US") -> str:
     """Add exchange suffix for non-US markets."""
     symbol = symbol.upper().strip()
-    if market == "NSE":
+    if market in ("NSE", "IN"):
         return f"{symbol}.NS" if not symbol.endswith(".NS") else symbol
     if market == "BSE":
         return f"{symbol}.BO" if not symbol.endswith(".BO") else symbol

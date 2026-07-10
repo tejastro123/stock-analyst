@@ -1,12 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { marketApi } from '../../api';
+import React, { useState, useMemo, useEffect } from 'react';
+import { marketApi, userApi } from '../../api';
 import TradingViewScreener from '../../components/TradingViewScreener/TradingViewScreener';
 import ReportExporter from '../../components/ReportExporter/ReportExporter';
 import './Screener.css';
 
 // ── Default filters ──────────────────────────────────────────────────────────
 const DEFAULT_FILTERS = {
-  market: 'US',
+  market: 'NSE',
   sort_by: 'market_cap',
   sort_asc: false,
   limit: 50,
@@ -80,6 +80,17 @@ function ScreenerPage() {
   const [sortAsc, setSortAsc] = useState(false);
   const [ran, setRan] = useState(false);
   const [activeTab, setActiveTab] = useState('custom'); // 'custom' | 'tradingview'
+
+  useEffect(() => {
+    userApi.getSettings()
+      .then(res => {
+        if (res.data?.default_market) {
+          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
+          setFilters(prev => ({ ...prev, market: m }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const setFilter = (name, value) =>
     setFilters((f) => ({ ...f, [name]: value }));

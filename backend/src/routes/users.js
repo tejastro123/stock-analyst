@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 
 // GET /api/users/watchlists
 router.get('/watchlists', authenticate, async (req, res) => {
@@ -23,7 +23,7 @@ router.get('/watchlists', authenticate, async (req, res) => {
 });
 
 // POST /api/users/watchlists
-router.post('/watchlists', authenticate, async (req, res) => {
+router.post('/watchlists', authenticate, authorize('trader', 'admin'), async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'Name required' });
   try {
@@ -38,7 +38,7 @@ router.post('/watchlists', authenticate, async (req, res) => {
 });
 
 // POST /api/users/watchlists/:id/symbols
-router.post('/watchlists/:id/symbols', authenticate, async (req, res) => {
+router.post('/watchlists/:id/symbols', authenticate, authorize('trader', 'admin'), async (req, res) => {
   const { symbol, market = 'US' } = req.body;
   if (!symbol) return res.status(400).json({ error: 'Symbol required' });
   try {
@@ -58,7 +58,7 @@ router.post('/watchlists/:id/symbols', authenticate, async (req, res) => {
 });
 
 // DELETE /api/users/watchlists/:id/symbols/:symbol
-router.delete('/watchlists/:id/symbols/:symbol', authenticate, async (req, res) => {
+router.delete('/watchlists/:id/symbols/:symbol', authenticate, authorize('trader', 'admin'), async (req, res) => {
   try {
     const wl = await pool.query('SELECT id FROM watchlists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
     if (!wl.rows[0]) return res.status(404).json({ error: 'Watchlist not found' });
@@ -84,22 +84,25 @@ router.get('/settings', authenticate, async (req, res) => {
 });
 
 // PATCH /api/users/settings
-router.patch('/settings', authenticate, async (req, res) => {
+router.patch('/settings', authenticate, authorize('trader', 'admin'), async (req, res) => {
   const { theme, default_market, currency, timezone, layout_config } = req.body;
   try {
     const result = await pool.query(
-      `UPDATE user_settings SET
-         theme = COALESCE($1, theme),
-         default_market = COALESCE($2, default_market),
-         currency = COALESCE($3, currency),
-         timezone = COALESCE($4, timezone),
-         layout_config = COALESCE($5::jsonb, layout_config),
+      `INSERT INTO user_settings (user_id, theme, default_market, currency, timezone, layout_config)
+       VALUES ($6, $1, $2, $3, $4, COALESCE($5::jsonb, '{}'::jsonb))
+       ON CONFLICT (user_id) DO UPDATE SET
+         theme = COALESCE(EXCLUDED.theme, user_settings.theme),
+         default_market = COALESCE(EXCLUDED.default_market, user_settings.default_market),
+         currency = COALESCE(EXCLUDED.currency, user_settings.currency),
+         timezone = COALESCE(EXCLUDED.timezone, user_settings.timezone),
+         layout_config = COALESCE(EXCLUDED.layout_config, user_settings.layout_config),
          updated_at = NOW()
-       WHERE user_id = $6 RETURNING *`,
+       RETURNING *`,
       [theme, default_market, currency, timezone, layout_config ? JSON.stringify(layout_config) : null, req.user.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('Settings upsert error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

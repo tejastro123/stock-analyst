@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { portfolioApi } from '../../api';
+import { portfolioApi, marketApi, userApi } from '../../api';
+import useAuthStore from '../../store/authStore';
 import ReportExporter from '../../components/ReportExporter/ReportExporter';
 import './Portfolio.css';
 
@@ -77,6 +78,7 @@ function DonutChart({ data }) {
 }
 
 function PortfolioPage() {
+  const { user } = useAuthStore();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -87,7 +89,7 @@ function PortfolioPage() {
   // Add position state
   const [showAddForm, setShowAddForm] = useState(false);
   const [symbol, setSymbol] = useState('');
-  const [market, setMarket] = useState('US');
+  const [market, setMarket] = useState('NSE');
   const [assetType, setAssetType] = useState('equity');
   const [quantity, setQuantity] = useState('');
   const [avgCost, setAvgCost] = useState('');
@@ -100,12 +102,32 @@ function PortfolioPage() {
   const [editCost, setEditCost] = useState('');
   const [editNotes, setEditNotes] = useState('');
 
+  // Historical equity curve
+  const [historyData, setHistoryData] = useState([]);
+  const [histLoading, setHistLoading] = useState(false);
+
   const fetchPortfolio = async () => {
     try {
       setLoading(true);
       const res = await portfolioApi.getPortfolio();
       setData(res.data);
       setError('');
+
+      // Fetch historical risk for equity curve
+      if (res.data?.positions?.length > 0) {
+        setHistLoading(true);
+        const positions = res.data.positions
+          .filter(p => p.market !== 'NSE')
+          .map(p => ({ symbol: p.symbol, quantity: parseFloat(p.quantity), market: p.market || 'US' }));
+        if (positions.length > 0) {
+          marketApi.getHistoricalRisk(positions)
+            .then(r => setHistoryData(r.data?.history || []))
+            .catch(() => {})
+            .finally(() => setHistLoading(false));
+        } else {
+          setHistLoading(false);
+        }
+      }
     } catch (err) {
       console.error(err);
       setError('Failed to fetch portfolio data.');
@@ -116,10 +138,22 @@ function PortfolioPage() {
 
   useEffect(() => {
     fetchPortfolio();
+    userApi.getSettings()
+      .then(res => {
+        if (res.data?.default_market) {
+          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
+          setMarket(m);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleAddPosition = async (e) => {
     e.preventDefault();
+    if (user?.role === 'viewer') {
+      setError('Permission Denied: Viewer accounts cannot modify positions.');
+      return;
+    }
     if (!symbol || !quantity || !avgCost) {
       setError('Please fill in Symbol, Quantity, and Avg Cost.');
       return;
@@ -149,6 +183,10 @@ function PortfolioPage() {
   };
 
   const handleStartEdit = (pos) => {
+    if (user?.role === 'viewer') {
+      setError('Permission Denied: Viewer accounts cannot modify positions.');
+      return;
+    }
     setEditingId(pos.id);
     setEditQty(pos.quantity);
     setEditCost(pos.avg_cost);
@@ -156,6 +194,10 @@ function PortfolioPage() {
   };
 
   const handleSaveEdit = async (id) => {
+    if (user?.role === 'viewer') {
+      setError('Permission Denied: Viewer accounts cannot modify positions.');
+      return;
+    }
     try {
       await portfolioApi.updatePosition(id, {
         quantity: parseFloat(editQty),
@@ -171,6 +213,10 @@ function PortfolioPage() {
   };
 
   const handleDeletePosition = async (id) => {
+    if (user?.role === 'viewer') {
+      setError('Permission Denied: Viewer accounts cannot modify positions.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to remove this position?')) return;
     try {
       await portfolioApi.deletePosition(id);
@@ -237,12 +283,14 @@ function PortfolioPage() {
           <div className="panel" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div className="panel-header">
               <span className="panel-title">Open Positions</span>
-              <button 
-                className="btn btn-ghost btn-sm" 
-                onClick={() => setShowAddForm(!showAddForm)}
-              >
-                {showAddForm ? 'CANCEL' : '+ ADD POSITION'}
-              </button>
+              {user?.role !== 'viewer' && (
+                <button 
+                  className="btn btn-ghost btn-sm" 
+                  onClick={() => setShowAddForm(!showAddForm)}
+                >
+                  {showAddForm ? 'CANCEL' : '+ ADD POSITION'}
+                </button>
+              )}
             </div>
 
             {error && <div className="portfolio-error">⚠ {error}</div>}
@@ -259,6 +307,7 @@ function PortfolioPage() {
                     <select className="form-input" value={market} onChange={e => setMarket(e.target.value)}>
                       <option value="US">🇺🇸 US</option>
                       <option value="NSE">🇮🇳 NSE India</option>
+                      <option value="BSE">🇮🇳 BSE India</option>
                     </select>
                   </div>
                   <div className="form-field">
@@ -358,7 +407,9 @@ function PortfolioPage() {
                           <td className="text-muted font-mono">{pos.beta ? pos.beta.toFixed(2) : '1.00'}</td>
                           <td>
                             <div className="flex gap-1">
-                              {isEditing ? (
+                              {user?.role === 'viewer' ? (
+                                <span className="text-muted" style={{ fontSize: '10px' }}>READ-ONLY</span>
+                              ) : isEditing ? (
                                 <>
                                   <button className="btn btn-ghost btn-sm text-green" onClick={() => handleSaveEdit(pos.id)}>SAVE</button>
                                   <button className="btn btn-ghost btn-sm" onClick={() => setEditingId(null)}>CANCEL</button>
@@ -483,6 +534,76 @@ function PortfolioPage() {
                 </div>
                 <div className="text-muted" style={{ fontSize: 9, lineHeight: '1.2' }}>
                   At 95% confidence level, maximum expected 1-day portfolio loss is {fmt(data.summary.risk_analytics.value_at_risk)}.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Historical Equity Curve */}
+          {(historyData.length > 0 || histLoading) && (
+            <div className="panel" style={{ flexShrink: 0 }}>
+              <div className="panel-header">
+                <span className="panel-title">1-Year Equity Curve</span>
+                {histLoading && <span className="font-mono text-xxs text-amber animate-pulse">COMPUTING...</span>}
+              </div>
+              <div className="panel-body" style={{ padding: '10px' }}>
+                {historyData.length > 0 && (() => {
+                  const vals = historyData.map(d => d.value);
+                  const minV = Math.min(...vals);
+                  const maxV = Math.max(...vals);
+                  const range = (maxV - minV) || 1;
+                  const W = 240, H = 90, padL = 4, padR = 4, padT = 6, padB = 20;
+                  const cW = W - padL - padR;
+                  const cH = H - padT - padB;
+                  const pts = historyData.map((d, i) => {
+                    const x = padL + (i / (historyData.length - 1)) * cW;
+                    const y = padT + cH - ((d.value - minV) / range) * cH;
+                    return `${x},${y}`;
+                  }).join(' ');
+                  const lastVal = vals[vals.length - 1];
+                  const firstVal = vals[0];
+                  const isUp = lastVal >= firstVal;
+                  const color = isUp ? '#00ff88' : '#ff3b30';
+                  // X axis labels
+                  const labelCount = 4;
+                  const labels = Array.from({ length: labelCount }, (_, i) => {
+                    const idx = Math.round(i * (historyData.length - 1) / (labelCount - 1));
+                    return { x: padL + (idx / (historyData.length - 1)) * cW, label: historyData[idx]?.date?.slice(5) || '' };
+                  });
+                  return (
+                    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+                      <defs>
+                        <linearGradient id="eq-grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+                          <stop offset="100%" stopColor={color} stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      {/* Fill area */}
+                      <polygon
+                        points={`${padL},${padT + cH} ${pts} ${padL + cW},${padT + cH}`}
+                        fill="url(#eq-grad)"
+                      />
+                      {/* Line */}
+                      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+                      {/* X labels */}
+                      {labels.map((l, i) => (
+                        <text key={i} x={l.x} y={H - 4} fontSize="7" fill="#4b5563" textAnchor="middle" fontFamily="monospace">{l.label}</text>
+                      ))}
+                      {/* Current value dot */}
+                      {(() => {
+                        const last = historyData[historyData.length - 1];
+                        const lx = padL + cW;
+                        const ly = padT + cH - ((last.value - minV) / range) * cH;
+                        return <circle cx={lx} cy={ly} r="3" fill={color} />;
+                      })()}
+                    </svg>
+                  );
+                })()}
+                <div className="flex justify-between font-mono" style={{ fontSize: '9px', color: '#4b5563', marginTop: '4px' }}>
+                  <span>START: ${historyData[0]?.value?.toFixed(0) || '—'}</span>
+                  <span style={{ color: (historyData[historyData.length-1]?.value || 0) >= (historyData[0]?.value || 0) ? '#00ff88' : '#ff3b30' }}>
+                    NOW: ${historyData[historyData.length-1]?.value?.toFixed(0) || '—'}
+                  </span>
                 </div>
               </div>
             </div>

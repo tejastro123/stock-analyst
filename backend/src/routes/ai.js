@@ -473,6 +473,23 @@ function generateMockResponse(prompt) {
     ];
   }
 
+  if (normalized.includes('news sentiment') || normalized.includes('headlines')) {
+    const symbol = (prompt.match(/ticker\s+([a-zA-Z0-9\-\.]+)/i)?.[1] || 'SYMBOL').toUpperCase();
+    return [
+      `# SENTIMENT REPORT: ${symbol}\n\n`,
+      `### 1. News Summary\n`,
+      `Recent coverage indicates stable product line expansions and constructive analyst commentary. `,
+      `Markets are actively digest macroeconomic developments, keeping overall volatility in check.\n\n`,
+      `### 2. Sentiment Analysis per Article\n`,
+      `* **Article 1**: *Bullish* - Positive product growth reports highlight strong pricing execution.\n`,
+      `* **Article 2**: *Neutral* - Standard corporate disclosures show normal organizational updates.\n`,
+      `* **Article 3**: *Bullish* - Analyst upgrade cites healthy balance sheet and defensive posture.\n\n`,
+      `### 3. Overall Sentiment Score\n`,
+      `- **Consensus**: **BULLISH**\n`,
+      `- **Sentiment Score**: **+65** (on a scale from -100 to +100)`
+    ];
+  }
+
   if (normalized.includes('investment report') || normalized.includes('analyze')) {
     const symbol = (prompt.match(/ticker\s+([a-zA-Z0-9\-\.]+)/i)?.[1] || 'SELECTED SYMBOL').toUpperCase();
     return [
@@ -498,23 +515,6 @@ function generateMockResponse(prompt) {
       `- **Medium Term Target (12M)**: $${(120 + Math.random()*30).toFixed(2)} (Moderate Upside)\n`,
       `- **Long Term Target (3Y)**: $${(160 + Math.random()*50).toFixed(2)} (Long-Term Growth)\n`,
       `- **Consensus Recommendation**: **BUY**`
-    ];
-  }
-  
-  if (normalized.includes('news sentiment') || normalized.includes('headlines')) {
-    const symbol = (prompt.match(/ticker\s+([a-zA-Z0-9\-\.]+)/i)?.[1] || 'SYMBOL').toUpperCase();
-    return [
-      `# SENTIMENT REPORT: ${symbol}\n\n`,
-      `### 1. News Summary\n`,
-      `Recent coverage indicates stable product line expansions and constructive analyst commentary. `,
-      `Markets are actively digest macroeconomic developments, keeping overall volatility in check.\n\n`,
-      `### 2. Sentiment Analysis per Article\n`,
-      `* **Article 1**: *Bullish* - Positive product growth reports highlight strong pricing execution.\n`,
-      `* **Article 2**: *Neutral* - Standard corporate disclosures show normal organizational updates.\n`,
-      `* **Article 3**: *Bullish* - Analyst upgrade cites healthy balance sheet and defensive posture.\n\n`,
-      `### 3. Overall Sentiment Score\n`,
-      `- **Consensus**: **BULLISH**\n`,
-      `- **Sentiment Score**: **+65** (on a scale from -100 to +100)`
     ];
   }
   

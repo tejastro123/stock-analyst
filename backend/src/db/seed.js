@@ -27,10 +27,10 @@ async function seed() {
       );
 
       // Seed symbols
-      const symbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'AMZN', 'META', 'NFLX'];
+      const symbols = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'SBIN', 'ICICIBANK', 'LT', 'ITC'];
       for (const sym of symbols) {
         await client.query(
-          `INSERT INTO watchlist_symbols (watchlist_id, symbol) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          `INSERT INTO watchlist_symbols (watchlist_id, symbol, market) VALUES ($1, $2, 'NSE') ON CONFLICT DO NOTHING`,
           [wl.rows[0].id, sym]
         );
       }

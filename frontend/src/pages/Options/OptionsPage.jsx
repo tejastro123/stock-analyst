@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { marketApi } from '../../api';
+import { marketApi, userApi } from '../../api';
 import ReportExporter from '../../components/ReportExporter/ReportExporter';
 import './Options.css';
 
@@ -61,9 +61,9 @@ function calculateGreeks(S, K, T, r, v, type) {
 }
 
 function OptionsPage() {
-  const [symbol, setSymbol] = useState('AAPL');
-  const [inputSym, setInputSym] = useState('AAPL');
-  const [market, setMarket] = useState('US');
+  const [symbol, setSymbol] = useState('RELIANCE');
+  const [inputSym, setInputSym] = useState('RELIANCE');
+  const [market, setMarket] = useState('NSE');
   const [expiry, setExpiry] = useState('');
   
   const [data, setData] = useState(null);
@@ -88,6 +88,21 @@ function OptionsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    userApi.getSettings()
+      .then(res => {
+        if (res.data?.default_market) {
+          const m = res.data.default_market === 'IN' ? 'NSE' : res.data.default_market;
+          setMarket(m);
+          if (m === 'NSE' || m === 'BSE') {
+            setSymbol('RELIANCE');
+            setInputSym('RELIANCE');
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchOptionsChain(symbol, market, null);

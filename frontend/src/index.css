@@ -417,3 +417,127 @@ body {
 .glow-amber { box-shadow: var(--shadow-amber); }
 .glow-green { box-shadow: var(--shadow-green); }
 .glow-red   { box-shadow: var(--shadow-red); }
+
+/* ── Theme: Bloomberg Light ───────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary:      #f5f5f0;
+  --bg-secondary:    #eaeae2;
+  --bg-tertiary:     #e0e0d8;
+  --bg-panel:        #f0f0eb;
+  --bg-card:         #fafaf7;
+  --bg-hover:        #ddddd5;
+  --bg-active:       #d5d5cc;
+  --border-primary:  #ccccbf;
+  --border-accent:   #aaaaaa;
+  --text-primary:    #111111;
+  --text-secondary:  #444444;
+  --text-muted:      #888888;
+  --text-accent:     #cc6600;
+  --accent-primary:  #cc6600;
+  --accent-dim:      #aa4400;
+  --accent-glow:     rgba(204,102,0,0.15);
+  --accent-glow-lg:  rgba(204,102,0,0.08);
+  --green:    #007a4d;
+  --red:      #cc2222;
+  --blue:     #1a56cc;
+  --purple:   #6633aa;
+}
+
+/* ── Theme: Cyberpunk Neon ────────────────────────────────── */
+[data-theme="cyberpunk"] {
+  --bg-primary:      #020008;
+  --bg-secondary:    #06000f;
+  --bg-tertiary:     #0a0018;
+  --bg-panel:        #040010;
+  --bg-card:         #080020;
+  --bg-hover:        #12002a;
+  --bg-active:       #18003a;
+  --border-primary:  #2a0050;
+  --border-accent:   #4400aa;
+  --text-primary:    #ff00ff;
+  --text-secondary:  #cc00cc;
+  --text-muted:      #660066;
+  --text-accent:     #00ffff;
+  --accent-primary:  #00ffff;
+  --accent-dim:      #00aaaa;
+  --accent-glow:     rgba(0,255,255,0.15);
+  --accent-glow-lg:  rgba(0,255,255,0.06);
+  --green:    #00ff88;
+  --red:      #ff0066;
+  --blue:     #00aaff;
+  --purple:   #ff00ff;
+}
+
+/* ── Mobile Responsive Nav ────────────────────────────────── */
+@media (max-width: 768px) {
+  .terminal-sidebar {
+    width: 100%;
+    min-width: unset;
+    flex-direction: row;
+    height: 44px;
+    border-right: none;
+    border-top: 1px solid var(--border-primary);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
+    order: 1; /* push below main on mobile */
+    flex-shrink: 0;
+  }
+
+  .terminal-body {
+    flex-direction: column;
+  }
+
+  .terminal-main {
+    order: 0;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .sidebar-item {
+    flex-direction: row;
+    height: 44px;
+    min-width: 52px;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    flex-shrink: 0;
+  }
+
+  .sidebar-item.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--accent-primary);
+  }
+
+  .topbar-clock,
+  .topbar-market-status,
+  .user-info {
+    display: none;
+  }
+}
+
+/* ── Generic Skeleton Shimmer ────────────────────────────── */
+.shimmer {
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
+  background-size: 400px 100%;
+  animation: shimmerAnim 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmerAnim {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+
+.skeleton-text {
+  height: 12px;
+  border-radius: 2px;
+  margin: 4px 0;
+  display: inline-block;
+  background: var(--bg-secondary);
+}
+
+.skeleton-rect {
+  border-radius: 3px;
+  background: var(--bg-secondary);
+}
+
+

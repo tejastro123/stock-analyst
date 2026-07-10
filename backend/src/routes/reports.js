@@ -153,11 +153,30 @@ router.post('/pdf', authenticate, async (req, res) => {
 
   const html = renderPdfHtml(title, subtitle || 'Market Research Deck', contentHtml);
 
+  // Detect Chrome on Windows (Puppeteer bundled Chromium path varies by OS)
+  const launchOptions = {
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-extensions',
+      '--single-process',
+      '--no-zygote'
+    ]
+  };
+
+  // On Windows, Puppeteer bundled Chromium needs explicit path from package
   try {
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    const { executablePath } = require('puppeteer');
+    if (typeof executablePath === 'function') {
+      launchOptions.executablePath = executablePath();
+    }
+  } catch (_) { /* use default */ }
+
+  try {
+    const browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
     

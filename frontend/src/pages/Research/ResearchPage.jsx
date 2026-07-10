@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { reportsApi, portfolioApi } from '../../api';
+import MarkdownRenderer from '../../components/MarkdownRenderer/MarkdownRenderer';
 import './Research.css';
 
 const API_BASE_URL = 'http://localhost:3001/api';
@@ -439,8 +440,9 @@ function ResearchPage() {
                   <span style={{ fontSize: '10px', color: '#848e9c' }}>Generated: {new Date().toLocaleString()}</span>
                 </div>
                 
-                {streamedOutput}
-                
+                {streamedOutput ? (
+                  <MarkdownRenderer content={streamedOutput} />
+                ) : null}
                 {streaming && <span className="stream-cursor">▋</span>}
                 <div ref={outputEndRef} />
               </div>

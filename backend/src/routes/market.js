@@ -162,4 +162,66 @@ router.get('/py-health', async (req, res) => {
   }
 });
 
+// ── Backtester ─────────────────────────────────────────────────────────────
+router.post('/backtest', authenticate, async (req, res) => {
+  try {
+    const data = await pyFetch('/backtest/run', 'POST', req.body);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
+// ── Macro ──────────────────────────────────────────────────────────────────
+router.get('/macro/curve', authenticate, async (req, res) => {
+  try {
+    const data = await pyFetch('/macro/curve');
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
+router.get('/macro/series/:series_id', authenticate, async (req, res) => {
+  try {
+    const { calculate_yoy = 'false' } = req.query;
+    const data = await pyFetch(`/macro/series/${req.params.series_id}?calculate_yoy=${calculate_yoy}`);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
+router.get('/macro/search', authenticate, async (req, res) => {
+  try {
+    const { query } = req.query;
+    const data = await pyFetch(`/macro/search?query=${encodeURIComponent(query || '')}`);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
+// ── News ───────────────────────────────────────────────────────────────────
+router.get('/news/:symbol', authenticate, async (req, res) => {
+  try {
+    const { market = 'US' } = req.query;
+    const data = await pyFetch(`/news/${req.params.symbol}?market=${market}`);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
+// ── Risk ───────────────────────────────────────────────────────────────────
+router.post('/risk/historical', authenticate, async (req, res) => {
+  try {
+    const data = await pyFetch('/risk/historical', 'POST', req.body);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+

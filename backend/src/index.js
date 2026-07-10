@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -12,14 +13,59 @@ const marketRoutes = require('./routes/market');
 const portfolioRoutes = require('./routes/portfolio');
 const aiRoutes = require('./routes/ai');
 const reportsRoutes = require('./routes/reports');
+const alertsRoutes = require('./routes/alerts');
+const { initAlertEngine } = require('./services/alertEngine');
+
+// ── Boot-time schema guard ───────────────────────────────────────────────────
+// Ensures critical tables exist even if user skipped npm run db:migrate
+async function ensureSchema() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+      CREATE TABLE IF NOT EXISTS user_settings (
+        user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        theme         VARCHAR(20) DEFAULT 'dark',
+        default_market VARCHAR(10) DEFAULT 'IN',
+        currency      VARCHAR(10) DEFAULT 'INR',
+        timezone      VARCHAR(50) DEFAULT 'IST',
+        layout_config JSONB DEFAULT '{}',
+        updated_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      -- Migrate default constraints for existing tables
+      ALTER TABLE user_settings ALTER COLUMN default_market SET DEFAULT 'IN';
+      ALTER TABLE user_settings ALTER COLUMN currency SET DEFAULT 'INR';
+      ALTER TABLE user_settings ALTER COLUMN timezone SET DEFAULT 'IST';
+      -- Migrate existing records
+      UPDATE user_settings SET default_market = 'IN' WHERE default_market = 'US';
+      UPDATE user_settings SET currency = 'INR' WHERE currency = 'USD';
+      UPDATE user_settings SET timezone = 'IST' WHERE timezone = 'UTC' OR timezone = 'EST';
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS trigger_price DECIMAL(18,6);
+    `);
+  } catch (err) {
+    console.warn('⚠ Schema ensure warning (non-fatal):', err.message);
+  } finally {
+    client.release();
+  }
+}
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
 // ── Security Middleware ──────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false // disable CSP helper if it conflicts with locally-loaded resources
+}));
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Electron, or curl)
+    if (!origin || origin === 'null' || origin.startsWith('file://') || origin.startsWith('http://localhost') || origin.startsWith('vscode-webview://')) {
+      callback(null, true);
+    } else {
+      callback(null, false); // Block other origins safely
+    }
+  },
   credentials: true,
 }));
 
@@ -64,6 +110,7 @@ app.use('/api/market', marketRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/alerts', alertsRoutes);
 
 // ── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -76,12 +123,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// ── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n🚀 QuantDesk API running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
-  console.log(`👤 Users: http://localhost:${PORT}/api/users\n`);
-});
+// ── WebSocket & Start ────────────────────────────────────────────────────────
+initAlertEngine(server);
 
-module.exports = app;
+(async () => {
+  await ensureSchema();
+  server.listen(PORT, () => {
+    console.log(`\n🚀 QuantDesk API running on http://localhost:${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
+    console.log(`👤 Users: http://localhost:${PORT}/api/users\n`);
+  });
+})();
+
+module.exports = server;

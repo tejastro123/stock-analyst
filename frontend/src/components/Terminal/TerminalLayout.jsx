@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import { userApi } from '../../api';
 import TradingViewTickerTape from '../TradingViewTickerTape/TradingViewTickerTape';
+import ErrorBoundary from '../ErrorBoundary';
 import './Terminal.css';
 
 const NAV_ITEMS = [
@@ -32,6 +34,17 @@ function TerminalLayout() {
     navigate('/login');
   };
 
+  useEffect(() => {
+    // Load and apply theme setting on mount
+    userApi.getSettings()
+      .then(res => {
+        if (res.data?.theme) {
+          document.documentElement.setAttribute('data-theme', res.data.theme);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="terminal-root">
       {/* ── Top Bar ── */}
@@ -55,7 +68,13 @@ function TerminalLayout() {
             <div className="user-avatar">{user?.username?.[0]?.toUpperCase() || 'U'}</div>
             <div className="user-info">
               <div className="font-mono text-xs fw-600">{user?.username || 'user'}</div>
-              <div className="text-xs text-muted">{user?.role || 'trader'}</div>
+              <div className="text-xs text-muted">
+                {user?.role === 'viewer' ? (
+                  <span className="badge badge-amber font-mono" style={{ fontSize: '9px', padding: '1px 4px', display: 'inline-block', lineHeight: 1 }}>READ-ONLY</span>
+                ) : (
+                  user?.role || 'trader'
+                )}
+              </div>
             </div>
             <button id="btn-logout" className="btn btn-ghost btn-sm" onClick={handleLogout}>
               EXIT
@@ -87,7 +106,9 @@ function TerminalLayout() {
 
         {/* ── Main Content ── */}
         <main className="terminal-main" id="main-content">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
 

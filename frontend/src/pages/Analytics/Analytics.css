@@ -1,0 +1,62 @@
+.analytics-root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  padding: 12px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  gap: 12px;
+  background-color: #06060c;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media(min-width: 900px) {
+  .analytics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.risk-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.risk-card {
+  background: #11111b;
+  border: 1px solid #1f2937;
+  padding: 12px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.risk-card-label {
+  font-size: 8px;
+  color: #848e9c;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.risk-card-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.advisor-output-box {
+  background: #11111b;
+  border: 1px solid #1f2937;
+  padding: 16px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #d1d5db;
+  overflow-y: auto;
+  max-height: 400px;
+}

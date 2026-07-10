@@ -97,11 +97,15 @@ CREATE TABLE IF NOT EXISTS alerts (
   is_active   BOOLEAN DEFAULT true,
   triggered   BOOLEAN DEFAULT false,
   triggered_at TIMESTAMPTZ,
+  trigger_price DECIMAL(18,6),
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_alerts_user ON alerts(user_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_symbol ON alerts(symbol);
+
+-- Add trigger_price column if upgrading from older schema
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS trigger_price DECIMAL(18,6);
 
 -- =====================
 -- USER SETTINGS

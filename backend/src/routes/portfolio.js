@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const pool = require('../db/pool');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 
 const PY_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
 
@@ -51,16 +51,26 @@ router.get('/', authenticate, async (req, res) => {
     const positions = posResult.rows;
 
     // Group symbols by market to call batch quotes
-    const usSymbols = Array.from(new Set(positions.filter(p => p.market === 'US' || !p.market).map(p => p.symbol)));
-    const nseSymbols = Array.from(new Set(positions.filter(p => p.market === 'NSE').map(p => p.symbol)));
+    const marketGroups = {};
+    positions.forEach(p => {
+      const m = p.market || 'US';
+      if (!marketGroups[m]) marketGroups[m] = new Set();
+      marketGroups[m].add(p.symbol);
+    });
 
-    // Fetch quotes and fundamentals in parallel
-    const [usQuotes, nseQuotes] = await Promise.all([
-      fetchBatchQuotes(usSymbols, 'US'),
-      fetchBatchQuotes(nseSymbols, 'NSE')
-    ]);
+    const marketPromises = Object.keys(marketGroups).map(async (m) => {
+      const symbols = Array.from(marketGroups[m]);
+      const quotes = await fetchBatchQuotes(symbols, m);
+      return { market: m, quotes };
+    });
 
-    const quotes = { ...usQuotes, ...nseQuotes };
+    const marketResults = await Promise.all(marketPromises);
+    const quotesMap = {};
+    marketResults.forEach(res => {
+      Object.keys(res.quotes || {}).forEach(sym => {
+        quotesMap[`${sym.toUpperCase()}:${res.market}`] = res.quotes[sym];
+      });
+    });
 
     // Fetch fundamentals for equity positions to get sector and beta
     const equityPositions = positions.filter(p => p.asset_type === 'equity' || !p.asset_type);
@@ -71,7 +81,7 @@ router.get('/', authenticate, async (req, res) => {
     const fundamentalsMap = {};
     fundamentalsList.forEach(f => {
       if (f && f.symbol) {
-        fundamentalsMap[f.symbol.toUpperCase()] = f;
+        fundamentalsMap[`${f.symbol.toUpperCase()}:${f.market || 'US'}`] = f;
       }
     });
 
@@ -82,8 +92,10 @@ router.get('/', authenticate, async (req, res) => {
 
     const enrichedPositions = positions.map(pos => {
       const sym = pos.symbol.toUpperCase();
-      const quote = quotes[sym];
-      const fund = fundamentalsMap[sym] || {};
+      const m = pos.market || 'US';
+      const key = `${sym}:${m}`;
+      const quote = quotesMap[key];
+      const fund = fundamentalsMap[key] || {};
 
       const qty = parseFloat(pos.quantity);
       const avgCost = parseFloat(pos.avg_cost);
@@ -103,11 +115,12 @@ router.get('/', authenticate, async (req, res) => {
       totalValue += marketValue;
       totalCost += costBasis;
       totalDailyPnL += dailyPnL;
+      weightedBetaSum += beta * marketValue;
 
       return {
         id: pos.id,
         symbol: pos.symbol,
-        market: pos.market || 'US',
+        market: m,
         asset_type: pos.asset_type,
         quantity: qty,
         avg_cost: avgCost,
@@ -205,7 +218,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // POST /api/portfolio/position — Add a position
-router.post('/position', authenticate, async (req, res) => {
+router.post('/position', authenticate, authorize('trader', 'admin'), async (req, res) => {
   const { symbol, market = 'US', asset_type = 'equity', quantity, avg_cost, notes } = req.body;
   if (!symbol || !quantity || !avg_cost) {
     return res.status(400).json({ error: 'Symbol, quantity, and avg_cost are required' });
@@ -254,7 +267,7 @@ router.post('/position', authenticate, async (req, res) => {
 });
 
 // PUT /api/portfolio/position/:id — Update position
-router.put('/position/:id', authenticate, async (req, res) => {
+router.put('/position/:id', authenticate, authorize('trader', 'admin'), async (req, res) => {
   const { quantity, avg_cost, notes } = req.body;
   try {
     // Verify ownership
@@ -276,7 +289,7 @@ router.put('/position/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/portfolio/position/:id — Delete position
-router.delete('/position/:id', authenticate, async (req, res) => {
+router.delete('/position/:id', authenticate, authorize('trader', 'admin'), async (req, res) => {
   try {
     // Verify ownership
     const portfolio = await getOrCreatePortfolio(req.user.id);
