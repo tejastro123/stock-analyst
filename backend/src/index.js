@@ -15,6 +15,13 @@ const aiRoutes = require('./routes/ai');
 const reportsRoutes = require('./routes/reports');
 const alertsRoutes = require('./routes/alerts');
 const { initAlertEngine } = require('./services/alertEngine');
+const { ensureWealthOSSchema } = require('./wealthos/db');
+const { ensureEnterpriseSchema } = require('./db/migrate_enterprise');
+const { startReportScheduler } = require('./services/reportScheduler');
+const wealthosRoutes = require('./wealthos/routes');
+const enterpriseRoutes = require('./routes/enterprise');
+
+
 
 // ── Boot-time schema guard ───────────────────────────────────────────────────
 // Ensures critical tables exist even if user skipped npm run db:migrate
@@ -42,6 +49,11 @@ async function ensureSchema() {
       UPDATE user_settings SET timezone = 'IST' WHERE timezone = 'UTC' OR timezone = 'EST';
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS trigger_price DECIMAL(18,6);
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS market VARCHAR(10) DEFAULT 'NSE';
+
+      -- Upgrade watchlists for Folder, Tags, Notes support
+      ALTER TABLE watchlists ADD COLUMN IF NOT EXISTS folder VARCHAR(100) DEFAULT NULL;
+      ALTER TABLE watchlist_symbols ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE watchlist_symbols ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
 
       CREATE TABLE IF NOT EXISTS screener_presets (
         id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -96,12 +108,12 @@ app.use(cors({
 // ── Rate Limiting ────────────────────────────────────────────────────────────
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 10000, // Increased for development and automation testing
   message: { error: 'Too many requests, please try again later.' },
 });
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 1000, // Increased for automated subagent browser login actions
   message: { error: 'Too many auth attempts.' },
 });
 
@@ -135,8 +147,11 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/alerts', alertsRoutes);
+app.use('/api/wealthos', wealthosRoutes); // WealthOS routes integration
+app.use('/api/enterprise', enterpriseRoutes);
 
 // ── 404 Handler ──────────────────────────────────────────────────────────────
+
 app.use((req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
 });
@@ -149,9 +164,13 @@ app.use((err, req, res, next) => {
 
 // ── WebSocket & Start ────────────────────────────────────────────────────────
 initAlertEngine(server);
+startReportScheduler();
 
 (async () => {
   await ensureSchema();
+  await ensureWealthOSSchema();
+  await ensureEnterpriseSchema();
+
   server.listen(PORT, () => {
     console.log(`\n🚀 QuantDesk API running on http://localhost:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);

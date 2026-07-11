@@ -5,6 +5,8 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 
+from utils import normalize_symbol
+
 router = APIRouter(prefix="/risk", tags=["risk"])
 
 class PositionInput(BaseModel):
@@ -20,8 +22,8 @@ def calculate_historical_risk(req: HistoricalRiskRequest):
     if not req.positions:
         return {"summary": {}, "history": []}
 
-    symbols = [p.symbol.upper() for p in req.positions]
-    quantities = {p.symbol.upper(): p.quantity for p in req.positions}
+    symbols = [normalize_symbol(p.symbol, p.market) for p in req.positions]
+    quantities = {normalize_symbol(p.symbol, p.market): p.quantity for p in req.positions}
 
     # 1. Fetch historical prices (1 Year) one by one
     close_data = pd.DataFrame()

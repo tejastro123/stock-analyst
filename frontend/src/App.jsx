@@ -20,6 +20,10 @@ import BacktesterPage from './pages/Backtester/BacktesterPage';
 import NewsPage from './pages/News/NewsPage';
 import AnalyticsPage from './pages/Analytics/AnalyticsPage';
 import SettingsPage from './pages/Settings/SettingsPage';
+import WealthOSPage from './pages/WealthOS/WealthOSPage';
+import EnterprisePage from './pages/Enterprise/EnterprisePage';
+
+
 
 function PrivateRoute({ children }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -73,7 +77,10 @@ function App() {
           <Route path="dashboard"  element={<DashboardPage />} />
           <Route path="screener"   element={<ScreenerPage />} />
           <Route path="portfolio"  element={<PortfolioPage />} />
+          <Route path="wealthos"   element={<WealthOSPage />} />
+          <Route path="enterprise" element={<EnterprisePage />} />
           <Route path="options"    element={<OptionsPage />} />
+
           <Route path="charts"     element={<ChartsPage />} />
           <Route path="crypto"     element={<CryptoPage />} />
           <Route path="forex"      element={<ForexPage />} />

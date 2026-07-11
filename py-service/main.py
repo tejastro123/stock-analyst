@@ -20,7 +20,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import cache
-from routers import quotes, ohlcv, fundamentals, options, screener, sector, market_metrics, news, macro, backtester, risk, signals, etf
+from routers import quotes, ohlcv, fundamentals, options, screener, sector, market_metrics, news, macro, backtester, risk, signals, etf, indicators
 
 app = FastAPI(
     title="QuantDesk Data Service",
@@ -57,6 +57,14 @@ app.include_router(backtester.router)
 app.include_router(risk.router)
 app.include_router(signals.router)
 app.include_router(etf.router)
+app.include_router(indicators.router)
+
+# Mount WealthOS router from external folder
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "wealthos", "py-service")))
+from analytics import router as wealthos_router
+app.include_router(wealthos_router)
+
 
 
 

@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Query, HTTPException
 import yfinance as yf
+import pandas as pd
+import numpy as np
+from datetime import datetime
 
 import cache
 from utils import safe_float, safe_int, normalize_symbol
@@ -100,6 +103,117 @@ def get_fundamentals(symbol: str, market: str = Query("US")):
                 data["next_earnings_date"] = str(dates)
     except Exception:
         pass
+
+    cache.set("fundamentals", cache_key, data)
+    return {**data, "cached": False}
+
+
+@router.get("/{symbol}/copilot-data")
+def get_copilot_data(symbol: str, market: str = Query("US")):
+    cache_key = f"copilot:{symbol.upper()}:{market}"
+    cached = cache.get("fundamentals", cache_key)
+    if cached:
+        return {**cached, "cached": True}
+
+    yf_sym = normalize_symbol(symbol, market)
+    try:
+        ticker = yf.Ticker(yf_sym)
+    except Exception as e:
+        raise HTTPException(502, f"yfinance error: {str(e)}")
+
+    def clean_df(df: pd.DataFrame) -> list[dict]:
+        if df is None or df.empty:
+            return []
+        try:
+            df = df.replace([np.inf, -np.inf], np.nan)
+            df_reset = df.reset_index()
+            records = df_reset.to_dict(orient="records")
+            for r in records:
+                for k, v in list(r.items()):
+                    if pd.isna(v):
+                        r[k] = None
+                    elif isinstance(v, (datetime, pd.Timestamp)):
+                        r[k] = v.strftime("%Y-%m-%d")
+                    elif isinstance(v, (str, bytes)) == False and hasattr(v, "dtype"):
+                        if np.isnan(v):
+                            r[k] = None
+                        else:
+                            r[k] = v.item()
+            return records
+        except Exception:
+            return []
+
+    # Get financials, balance sheet, cashflow
+    fin_summary = {}
+    try:
+        df_fin = ticker.financials
+        fin_summary["financials"] = clean_df(df_fin.transpose()) if df_fin is not None else []
+    except Exception as e:
+        fin_summary["financials_error"] = str(e)
+
+    try:
+        df_bs = ticker.balance_sheet
+        fin_summary["balance_sheet"] = clean_df(df_bs.transpose()) if df_bs is not None else []
+    except Exception as e:
+        fin_summary["balance_sheet_error"] = str(e)
+
+    try:
+        df_cf = ticker.cashflow
+        fin_summary["cashflow"] = clean_df(df_cf.transpose()) if df_cf is not None else []
+    except Exception as e:
+        fin_summary["cashflow_error"] = str(e)
+
+    # Get insider & institutional holdings
+    holdings = {}
+    try:
+        df_insider = ticker.insider_transactions
+        holdings["insider_transactions"] = clean_df(df_insider.head(15)) if df_insider is not None else []
+    except Exception:
+        holdings["insider_transactions"] = []
+
+    try:
+        df_inst = ticker.institutional_holders
+        holdings["institutional_holders"] = clean_df(df_inst.head(15)) if df_inst is not None else []
+    except Exception:
+        holdings["institutional_holders"] = []
+
+    try:
+        df_major = ticker.major_holders
+        holdings["major_holders"] = clean_df(df_major) if df_major is not None else []
+    except Exception:
+        holdings["major_holders"] = []
+
+    # Get earnings history
+    earnings = {}
+    try:
+        df_earn = ticker.earnings_history
+        earnings["earnings_history"] = clean_df(df_earn.head(10)) if df_earn is not None else []
+    except Exception:
+        earnings["earnings_history"] = []
+
+    # Next earnings dates
+    next_earnings_date = None
+    try:
+        cal = ticker.calendar
+        if cal is not None and "Earnings Date" in cal:
+            dates = cal["Earnings Date"]
+            if hasattr(dates, "__iter__"):
+                next_earnings_date = str(list(dates)[0]) if dates else None
+            else:
+                next_earnings_date = str(dates)
+    except Exception:
+        pass
+
+    data = {
+        "symbol": symbol.upper(),
+        "market": market,
+        "financials": fin_summary,
+        "holdings": holdings,
+        "earnings": {
+            **earnings,
+            "next_earnings_date": next_earnings_date
+        }
+    }
 
     cache.set("fundamentals", cache_key, data)
     return {**data, "cached": False}

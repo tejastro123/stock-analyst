@@ -6,27 +6,15 @@ import './Research.css';
 const API_BASE_URL = 'http://localhost:3001/api';
 
 function ResearchPage() {
-  const [selectedTool, setSelectedTool] = useState('copilot'); // 'copilot' | 'equity' | 'sentiment' | 'portfolio' | 'risk'
+  const [selectedTool, setSelectedTool] = useState('research'); // 'research' | 'technical' | 'news' | 'portfolio' | 'options' | 'copilot'
   const [ollamaStatus, setOllamaStatus] = useState({ online: false, model: 'mistral' });
   const [inputVal, setInputVal] = useState('');
   const [ticker, setTicker] = useState('AAPL');
   const [market, setMarket] = useState('US');
-  const [assetType, setAssetType] = useState('stock'); // 'stock' | 'etf' | 'crypto' | 'option' | 'forex'
   const [streamedOutput, setStreamedOutput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState('');
-  const [etfPeers, setEtfPeers] = useState(null);
   const outputEndRef = useRef(null);
-
-  const getTickerPlaceholder = () => {
-    switch (assetType) {
-      case 'etf': return 'e.g. SPY';
-      case 'crypto': return 'e.g. BTC-USD';
-      case 'option': return 'e.g. AAPL260716C00150000';
-      case 'forex': return 'e.g. EURUSD=X';
-      default: return 'e.g. AAPL';
-    }
-  };
 
   // Check Ollama status on load
   useEffect(() => {
@@ -108,10 +96,39 @@ function ResearchPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(`Failed to retrieve AI analysis stream: ${err.message}`);
+      setError(`Failed to retrieve AI agent stream: ${err.message}`);
     } finally {
       setStreaming(false);
     }
+  };
+
+  const handleResearchSubmit = (e) => {
+    e.preventDefault();
+    if (!ticker) return;
+    handleStreamRequest('agent/research', { symbol: ticker.toUpperCase(), market });
+  };
+
+  const handleTechnicalSubmit = (e) => {
+    e.preventDefault();
+    if (!ticker) return;
+    handleStreamRequest('agent/technical', { symbol: ticker.toUpperCase(), market });
+  };
+
+  const handleNewsSubmit = (e) => {
+    e.preventDefault();
+    if (!ticker) return;
+    handleStreamRequest('agent/news', { symbol: ticker.toUpperCase(), market });
+  };
+
+  const handlePortfolioSubmit = (e) => {
+    if (e) e.preventDefault();
+    handleStreamRequest('agent/portfolio', {});
+  };
+
+  const handleOptionsSubmit = (e) => {
+    e.preventDefault();
+    if (!ticker) return;
+    handleStreamRequest('agent/options', { symbol: ticker.toUpperCase(), market });
   };
 
   const handleChatSubmit = (e) => {
@@ -119,59 +136,6 @@ function ResearchPage() {
     if (!inputVal.trim()) return;
     handleStreamRequest('chat', { message: inputVal });
     setInputVal('');
-  };
-
-  const handleEquitySubmit = (e) => {
-    e.preventDefault();
-    if (!ticker) return;
-    handleStreamRequest('analyze', { symbol: ticker.toUpperCase(), assetType, market });
-    // Fetch ETF peers if ETF selected
-    if (assetType === 'etf') {
-      import('../../api').then(({ marketApi }) => {
-        marketApi.getEtfPeers(ticker.toUpperCase(), market)
-          .then(res => setEtfPeers(res.data))
-          .catch(() => setEtfPeers(null));
-      });
-    } else {
-      setEtfPeers(null);
-    }
-  };
-
-  const handleSentimentSubmit = (e) => {
-    e.preventDefault();
-    if (!ticker) return;
-    handleStreamRequest('news-sentiment', { symbol: ticker.toUpperCase(), market });
-  };
-
-  const handlePortfolioSubmit = () => {
-    handleStreamRequest('portfolio-review', {});
-  };
-
-  const handleRiskSubmit = async () => {
-    try {
-      // First fetch current portfolio details to feed metrics into prompt
-      const token = localStorage.getItem('qd_access_token');
-      const portRes = await fetch(`${API_BASE_URL}/portfolio`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const portData = await portRes.json();
-      
-      const risk = portData?.summary?.risk_analytics || { portfolio_beta: 1.0, daily_volatility: 1.0, value_at_risk: 0.0 };
-      const totalVal = portData?.summary?.total_value || 0;
-
-      handleStreamRequest('risk-advisor', {
-        portfolioBeta: risk.portfolio_beta,
-        dailyVolatility: risk.daily_volatility,
-        valueAtRisk: risk.value_at_risk,
-        totalValue: totalVal
-      });
-    } catch (err) {
-      setError('Failed to fetch portfolio metrics for risk advisor.');
-    }
-  };
-
-  const handleMacroSubmit = () => {
-    handleStreamRequest('macro-review', {});
   };
 
   const handleExportPDF = async () => {
@@ -188,16 +152,16 @@ function ResearchPage() {
         .replace(/^\* (.*$)/gim, '<li>$1</li>')
         .replace(/\n/g, '<br>');
 
-      const title = selectedTool === 'equity' 
-        ? `${assetType.toUpperCase()} Report: ${ticker.toUpperCase()}`
-        : selectedTool === 'sentiment'
-        ? `Sentiment Deck: ${ticker.toUpperCase()}`
+      const title = selectedTool === 'research' 
+        ? `Research Agent Report: ${ticker.toUpperCase()}`
+        : selectedTool === 'technical'
+        ? `Technical Agent Report: ${ticker.toUpperCase()}`
+        : selectedTool === 'news'
+        ? `News Agent Report: ${ticker.toUpperCase()}`
         : selectedTool === 'portfolio'
-        ? 'Portfolio Strategic Review'
-        : selectedTool === 'risk'
-        ? 'Quantitative Risk Analysis'
-        : selectedTool === 'macro'
-        ? 'Macro Strategy Review'
+        ? 'Portfolio Agent Strategic Review'
+        : selectedTool === 'options'
+        ? `Options Agent Derivatives Report: ${ticker.toUpperCase()}`
         : 'AI Copilot Research Note';
 
       const res = await reportsApi.exportPdf({
@@ -243,7 +207,7 @@ function ResearchPage() {
       <div className="research-sidebar">
         <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <div className="panel-header">
-            <span className="panel-title">AI Research Deck</span>
+            <span className="panel-title">AI Agents Workspace</span>
             <span className={`badge ${ollamaStatus.online ? 'badge-green' : 'badge-red'} font-mono`}>
               {ollamaStatus.online ? 'OLLAMA ACTIVE' : 'SIMULATED'}
             </span>
@@ -253,51 +217,51 @@ function ResearchPage() {
             {/* Tool Selection Buttons */}
             <div className="tool-list flex flex-col gap-1">
               <button 
-                className={`tool-btn ${selectedTool === 'copilot' ? 'active' : ''}`}
-                onClick={() => { setSelectedTool('copilot'); setStreamedOutput(''); }}
+                className={`tool-btn ${selectedTool === 'research' ? 'active' : ''}`}
+                onClick={() => { setSelectedTool('research'); setStreamedOutput(''); }}
               >
-                <span className="tool-title">💬 Market Copilot</span>
-                <span className="tool-desc">Multipurpose general research assistant</span>
+                <span className="tool-title">🔍 Research Agent</span>
+                <span className="tool-desc">SEC filings, Earnings, Annual & Quarterly reports</span>
               </button>
 
               <button 
-                className={`tool-btn ${selectedTool === 'equity' ? 'active' : ''}`}
-                onClick={() => { setSelectedTool('equity'); setStreamedOutput(''); }}
+                className={`tool-btn ${selectedTool === 'technical' ? 'active' : ''}`}
+                onClick={() => { setSelectedTool('technical'); setStreamedOutput(''); }}
               >
-                <span className="tool-title">📊 Asset Researcher</span>
-                <span className="tool-desc">Stock, ETF, Crypto, F&O, Forex reports</span>
+                <span className="tool-title">📊 Technical Agent</span>
+                <span className="tool-desc">RSI, MACD, EMA, VWAP, Elliott Wave, Ichimoku, SMC</span>
               </button>
 
               <button 
-                className={`tool-btn ${selectedTool === 'sentiment' ? 'active' : ''}`}
-                onClick={() => { setSelectedTool('sentiment'); setStreamedOutput(''); }}
+                className={`tool-btn ${selectedTool === 'news' ? 'active' : ''}`}
+                onClick={() => { setSelectedTool('news'); setStreamedOutput(''); }}
               >
-                <span className="tool-title">📰 Sentiment Analyzer</span>
-                <span className="tool-desc">Aggregated headlines sentiment score</span>
+                <span className="tool-title">📰 News Agent</span>
+                <span className="tool-desc">Sentiment extraction across news articles</span>
               </button>
 
               <button 
                 className={`tool-btn ${selectedTool === 'portfolio' ? 'active' : ''}`}
                 onClick={() => { setSelectedTool('portfolio'); setStreamedOutput(''); }}
               >
-                <span className="tool-title">💼 Portfolio Advisor</span>
-                <span className="tool-desc">Allocation reviews and rebalancing advice</span>
+                <span className="tool-title">💼 Portfolio Agent</span>
+                <span className="tool-desc">Monitor rebalancing, diversification, and risk</span>
               </button>
 
               <button 
-                className={`tool-btn ${selectedTool === 'risk' ? 'active' : ''}`}
-                onClick={() => { setSelectedTool('risk'); setStreamedOutput(''); }}
+                className={`tool-btn ${selectedTool === 'options' ? 'active' : ''}`}
+                onClick={() => { setSelectedTool('options'); setStreamedOutput(''); }}
               >
-                <span className="tool-title">🛡️ Risk Advisor</span>
-                <span className="tool-desc">VaR breakdown & concrete hedging strategy</span>
+                <span className="tool-title">📈 Options Agent</span>
+                <span className="tool-desc">Greeks, IV, Max Pain, Open Interest, PCR analysis</span>
               </button>
 
               <button 
-                className={`tool-btn ${selectedTool === 'macro' ? 'active' : ''}`}
-                onClick={() => { setSelectedTool('macro'); setStreamedOutput(''); }}
+                className={`tool-btn ${selectedTool === 'copilot' ? 'active' : ''}`}
+                onClick={() => { setSelectedTool('copilot'); setStreamedOutput(''); }}
               >
-                <span className="tool-title">🌍 Macro Advisor</span>
-                <span className="tool-desc">Identify cycle regimes and policy transmission risks</span>
+                <span className="tool-title">💬 Market Copilot</span>
+                <span className="tool-desc">General multi-purpose chatbot assistant</span>
               </button>
             </div>
 
@@ -305,6 +269,130 @@ function ResearchPage() {
 
             {/* Inputs Box based on selected tool */}
             <div className="tool-inputs font-mono text-xs">
+              {selectedTool === 'research' && (
+                <form onSubmit={handleResearchSubmit} className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <div className="form-field flex-1">
+                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Ticker Symbol</label>
+                      <input 
+                        className="form-input" 
+                        value={ticker} 
+                        onChange={e => setTicker(e.target.value)} 
+                        placeholder="e.g. AAPL" 
+                        required 
+                        disabled={streaming}
+                      />
+                    </div>
+                    <div className="form-field" style={{ width: '80px' }}>
+                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Market</label>
+                      <select className="form-input" value={market} onChange={e => setMarket(e.target.value)} disabled={streaming}>
+                        <option value="US">🇺🇸 US</option>
+                        <option value="NSE">🇮🇳 NSE</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={streaming}>
+                    {streaming ? 'RUNNING CORPORATE AUDIT...' : 'DEPLOY RESEARCH AGENT'}
+                  </button>
+                </form>
+              )}
+
+              {selectedTool === 'technical' && (
+                <form onSubmit={handleTechnicalSubmit} className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <div className="form-field flex-1">
+                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Ticker Symbol</label>
+                      <input 
+                        className="form-input" 
+                        value={ticker} 
+                        onChange={e => setTicker(e.target.value)} 
+                        placeholder="e.g. AAPL" 
+                        required 
+                        disabled={streaming}
+                      />
+                    </div>
+                    <div className="form-field" style={{ width: '80px' }}>
+                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Market</label>
+                      <select className="form-input" value={market} onChange={e => setMarket(e.target.value)} disabled={streaming}>
+                        <option value="US">🇺🇸 US</option>
+                        <option value="NSE">🇮🇳 NSE</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={streaming}>
+                    {streaming ? 'ANALYZING CHARTS...' : 'DEPLOY TECHNICAL AGENT'}
+                  </button>
+                </form>
+              )}
+
+              {selectedTool === 'news' && (
+                <form onSubmit={handleNewsSubmit} className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <div className="form-field flex-1">
+                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Ticker Symbol</label>
+                      <input 
+                        className="form-input" 
+                        value={ticker} 
+                        onChange={e => setTicker(e.target.value)} 
+                        placeholder="e.g. AAPL" 
+                        required 
+                        disabled={streaming}
+                      />
+                    </div>
+                    <div className="form-field" style={{ width: '80px' }}>
+                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Market</label>
+                      <select className="form-input" value={market} onChange={e => setMarket(e.target.value)} disabled={streaming}>
+                        <option value="US">🇺🇸 US</option>
+                        <option value="NSE">🇮🇳 NSE</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={streaming}>
+                    {streaming ? 'COMPILING HEADLINES...' : 'DEPLOY NEWS AGENT'}
+                  </button>
+                </form>
+              )}
+
+              {selectedTool === 'portfolio' && (
+                <form onSubmit={handlePortfolioSubmit} className="flex flex-col gap-2">
+                  <span className="text-muted font-mono text-xxs uppercase">Review portfolio metrics</span>
+                  <p className="text-muted text-xxs">
+                    Reads open positions directly from database, evaluates asset weights, and drafts rebalancing steps.
+                  </p>
+                  <button type="submit" className="btn btn-primary" disabled={streaming}>
+                    {streaming ? 'AUDITING PORTFOLIO...' : 'DEPLOY PORTFOLIO AGENT'}
+                  </button>
+                </form>
+              )}
+
+              {selectedTool === 'options' && (
+                <form onSubmit={handleOptionsSubmit} className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <div className="form-field flex-1">
+                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Underlying Ticker</label>
+                      <input 
+                        className="form-input" 
+                        value={ticker} 
+                        onChange={e => setTicker(e.target.value)} 
+                        placeholder="e.g. AAPL" 
+                        required 
+                        disabled={streaming}
+                      />
+                    </div>
+                    <div className="form-field" style={{ width: '80px' }}>
+                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Market</label>
+                      <select className="form-input" value={market} onChange={e => setMarket(e.target.value)} disabled={streaming}>
+                        <option value="US">🇺🇸 US</option>
+                        <option value="NSE">🇮🇳 NSE</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={streaming}>
+                    {streaming ? 'CALCULATING GREEKS...' : 'DEPLOY OPTIONS AGENT'}
+                  </button>
+                </form>
+              )}
+
               {selectedTool === 'copilot' && (
                 <form onSubmit={handleChatSubmit} className="flex flex-col gap-2">
                   <label className="text-muted uppercase fw-600 font-mono text-xxs">Ask AI Assistant</label>
@@ -321,122 +409,6 @@ function ResearchPage() {
                     {streaming ? 'PROCESSING...' : 'ASK COPILOT'}
                   </button>
                 </form>
-              )}
-
-              {selectedTool === 'equity' && (
-                <form onSubmit={handleEquitySubmit} className="flex flex-col gap-2">
-                  <div className="form-field">
-                    <label className="text-muted uppercase fw-600 font-mono text-xxs">Asset Class</label>
-                    <select 
-                      className="form-input" 
-                      value={assetType} 
-                      onChange={e => {
-                        setAssetType(e.target.value);
-                        if (e.target.value === 'etf') setTicker('SPY');
-                        else if (e.target.value === 'crypto') setTicker('BTC-USD');
-                        else if (e.target.value === 'option') setTicker('AAPL260716C00150000');
-                        else if (e.target.value === 'forex') setTicker('EURUSD=X');
-                        else setTicker('AAPL');
-                      }}
-                      disabled={streaming}
-                    >
-                      <option value="stock">📈 Stocks / Equities</option>
-                      <option value="etf">📦 ETFs (Exchange Traded Funds)</option>
-                      <option value="crypto">🪙 Cryptocurrencies</option>
-                      <option value="option">📉 Options (F&O Contracts)</option>
-                      <option value="forex">💱 Forex Currency Pairs</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="form-field flex-1">
-                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Symbol / Contract</label>
-                      <input 
-                        className="form-input" 
-                        value={ticker} 
-                        onChange={e => setTicker(e.target.value)} 
-                        placeholder={getTickerPlaceholder()}
-                        required 
-                        disabled={streaming}
-                      />
-                    </div>
-                    {(assetType === 'stock' || assetType === 'etf') && (
-                      <div className="form-field" style={{ width: '80px' }}>
-                        <label className="text-muted uppercase fw-600 font-mono text-xxs">Market</label>
-                        <select className="form-input" value={market} onChange={e => setMarket(e.target.value)} disabled={streaming}>
-                          <option value="US">🇺🇸 US</option>
-                          <option value="NSE">🇮🇳 NSE</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  <button type="submit" className="btn btn-primary" disabled={streaming}>
-                    {streaming ? 'GENERATING REPORT...' : 'GENERATE DETAILED REPORT'}
-                  </button>
-                </form>
-              )}
-
-              {selectedTool === 'sentiment' && (
-                <form onSubmit={handleSentimentSubmit} className="flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <div className="form-field flex-1">
-                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Ticker Symbol</label>
-                      <input 
-                        className="form-input" 
-                        value={ticker} 
-                        onChange={e => setTicker(e.target.value)} 
-                        placeholder="AAPL" 
-                        required 
-                        disabled={streaming}
-                      />
-                    </div>
-                    <div className="form-field" style={{ width: '80px' }}>
-                      <label className="text-muted uppercase fw-600 font-mono text-xxs">Market</label>
-                      <select className="form-input" value={market} onChange={e => setMarket(e.target.value)} disabled={streaming}>
-                        <option value="US">🇺🇸 US</option>
-                        <option value="NSE">🇮🇳 NSE</option>
-                      </select>
-                    </div>
-                  </div>
-                  <button type="submit" className="btn btn-primary" disabled={streaming}>
-                    {streaming ? 'ANALYZING NEWS...' : 'ANALYZE SENTIMENT'}
-                  </button>
-                </form>
-              )}
-
-              {selectedTool === 'portfolio' && (
-                <div className="flex flex-col gap-2">
-                  <span className="text-muted font-mono text-xxs uppercase">Review portfolio metrics</span>
-                  <p className="text-muted text-xxs">
-                    Reads open positions directly from database, evaluates asset weights, and drafts rebalancing steps.
-                  </p>
-                  <button onClick={handlePortfolioSubmit} className="btn btn-primary" disabled={streaming}>
-                    {streaming ? 'RUNNING STRATEGIC AUDIT...' : 'START PORTFOLIO AUDIT'}
-                  </button>
-                </div>
-              )}
-
-              {selectedTool === 'risk' && (
-                <div className="flex flex-col gap-2">
-                  <span className="text-muted font-mono text-xxs uppercase">Run tail risk advisory</span>
-                  <p className="text-muted text-xxs">
-                    Computes portfolio beta, daily volatility, and 95% VaR, drafting concrete hedging strategies.
-                  </p>
-                  <button onClick={handleRiskSubmit} className="btn btn-primary" disabled={streaming}>
-                    {streaming ? 'RUNNING RISK ADVISORY...' : 'START RISK ADVISORY'}
-                  </button>
-                </div>
-              )}
-
-              {selectedTool === 'macro' && (
-                <div className="flex flex-col gap-2">
-                  <span className="text-muted font-mono text-xxs uppercase">Analyze Macro Regime</span>
-                  <p className="text-muted text-xxs">
-                    Aggregates Federal Funds rate, CPI inflation, yield curve spreads, and drafts regime transmission risks.
-                  </p>
-                  <button onClick={handleMacroSubmit} className="btn btn-primary" disabled={streaming}>
-                    {streaming ? 'RUNNING MACRO ANALYSIS...' : 'START MACRO ANALYSIS'}
-                  </button>
-                </div>
               )}
             </div>
           </div>
@@ -464,9 +436,9 @@ function ResearchPage() {
             {!streamedOutput && !streaming ? (
               <div className="research-welcome">
                 <div className="logo-glowing">Q</div>
-                <div className="text-secondary text-sm">Ollama AI Research Workspace</div>
-                <div className="text-xs text-muted" style={{ maxWidth: '400px', textAlign: 'center', marginTop: 8 }}>
-                  Select an AI analytical engine from the left panel and click run to stream professional institutional investment reports.
+                <div className="text-secondary text-sm">QuantDesk Specialized AI Agents</div>
+                <div className="text-xs text-muted" style={{ maxWidth: '450px', textAlign: 'center', marginTop: 8 }}>
+                  Deploy specialized, data-aware intelligence agents from the left panel. Each agent gathers custom indicators, SEC disclosures, option chains, or news feeds to output high-fidelity analyses.
                 </div>
               </div>
             ) : (
@@ -481,55 +453,6 @@ function ResearchPage() {
                   <MarkdownRenderer content={streamedOutput} />
                 ) : null}
                 {streaming && <span className="stream-cursor">▋</span>}
-
-                {/* ETF Peer Cost Comparison */}
-                {etfPeers && !streaming && (
-                  <div className="panel" style={{ marginTop: '20px', border: '1px solid var(--border-primary)' }}>
-                    <div className="panel-header">
-                      <span className="panel-title">ETF Cost Peer Comparison</span>
-                      <span className="badge badge-blue font-mono">{etfPeers.group_name}</span>
-                    </div>
-                    <div className="panel-body font-mono text-xs">
-                      {etfPeers.savings && !etfPeers.savings.cheapest && (
-                        <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border-primary)', marginBottom: '8px', color: '#f59e0b' }}>
-                          💡 Cheaper alternative: <strong>{etfPeers.savings.cheapest_ticker}</strong> at {etfPeers.savings.cheapest_ratio}% —
-                          saves {etfPeers.savings.basis_point_difference?.toFixed(1)} bps
-                          (${etfPeers.savings.dollar_savings?.toLocaleString()} per $100K annually)
-                        </div>
-                      )}
-                      {etfPeers.savings?.cheapest && (
-                        <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border-primary)', marginBottom: '8px', color: '#00c87a' }}>
-                          ✅ This ETF is the cheapest in its peer group.
-                        </div>
-                      )}
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-primary)' }}>
-                            <th style={{ padding: '4px 8px', textAlign: 'left' }}>Rank</th>
-                            <th style={{ padding: '4px 8px', textAlign: 'left' }}>Symbol</th>
-                            <th style={{ padding: '4px 8px', textAlign: 'right' }}>Expense Ratio</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {etfPeers.peers?.map((p, i) => (
-                            <tr key={p.ticker} style={{
-                              background: p.ticker === etfPeers.symbol ? 'rgba(0,200,122,0.07)' : 'transparent',
-                              borderBottom: '1px solid var(--border-primary)'
-                            }}>
-                              <td style={{ padding: '5px 8px', color: 'var(--text-muted)' }}>#{i + 1}</td>
-                              <td style={{ padding: '5px 8px', fontWeight: p.ticker === etfPeers.symbol ? '700' : '400' }}>
-                                {p.ticker === etfPeers.symbol ? '→ ' : ''}{p.ticker}
-                              </td>
-                              <td style={{ padding: '5px 8px', textAlign: 'right', color: i === 0 ? '#00c87a' : 'var(--text-secondary)' }}>
-                                {p.expense_ratio?.toFixed(2)}%
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
 
                 <div ref={outputEndRef} />
               </div>

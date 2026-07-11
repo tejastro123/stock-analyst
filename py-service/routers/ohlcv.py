@@ -39,10 +39,32 @@ def get_ohlcv(
         ticker = yf.Ticker(yf_sym)
         df = ticker.history(period=period, interval=interval, auto_adjust=True)
     except Exception as e:
-        raise HTTPException(502, f"yfinance error: {str(e)}")
+        # Return empty candles instead of 502 — let the frontend handle "no data"
+        return {
+            "symbol": symbol.upper(),
+            "market": market,
+            "period": period,
+            "interval": interval,
+            "candles": [],
+            "count": 0,
+            "stats": {"current": None, "high": None, "low": None, "change_pct": None},
+            "data_available": False,
+            "error": str(e),
+            "cached": False,
+        }
 
     if df is None or df.empty:
-        raise HTTPException(404, f"No data for {symbol}")
+        return {
+            "symbol": symbol.upper(),
+            "market": market,
+            "period": period,
+            "interval": interval,
+            "candles": [],
+            "count": 0,
+            "stats": {"current": None, "high": None, "low": None, "change_pct": None},
+            "data_available": False,
+            "cached": False,
+        }
 
     candles = df_to_ohlcv(df)
 
@@ -55,6 +77,7 @@ def get_ohlcv(
         "interval": interval,
         "candles":  candles,
         "count":    len(candles),
+        "data_available": True,
         "stats": {
             "current":  closes[-1] if closes else None,
             "high":     max(closes) if closes else None,

@@ -4,6 +4,22 @@ import numpy as np
 import requests
 from typing import Any
 
+# Well-known symbols that are exclusively listed on US exchanges.
+# Appending .NS / .BO to these will cause yfinance to return empty data.
+_US_ONLY_SYMBOLS = frozenset([
+    'AAPL','MSFT','NVDA','GOOGL','GOOG','AMZN','TSLA','META','BRK-B','BRK-A',
+    'SPY','QQQ','DIA','IWM','GLD','SLV','USO','TLT','HYG','LQD',
+    'JPM','BAC','WFC','GS','MS','C','V','MA','PYPL','AXP',
+    'JNJ','PFE','MRK','ABBV','UNH','CVS','AMGN','GILD','BIIB',
+    'XOM','CVX','COP','SLB','HAL','MPC','VLO','PSX',
+    'WMT','COST','TGT','AMZN','HD','LOW','NKE','SBUX','MCD',
+    'INTC','AMD','QCOM','TXN','AVGO','MU','AMAT','LRCX','KLAC',
+    'NFLX','DIS','CMCSA','T','VZ','TMUS',
+    'BA','RTX','LMT','GE','HON','MMM','CAT','DE',
+    'BTC-USD','ETH-USD','SOL-USD','BNB-USD','XRP-USD','ADA-USD','DOGE-USD',
+    '^GSPC','^DJI','^IXIC','^VIX','^TNX','^RUT',
+])
+
 # Monkey patch requests.Session to prevent Yahoo Finance 401 Crumb errors
 _orig_session_init = requests.Session.__init__
 def _patched_session_init(self, *args, **kwargs):
@@ -33,14 +49,24 @@ def safe_int(v: Any) -> int | None:
 
 
 def normalize_symbol(symbol: str, market: str = "US") -> str:
-    """Add exchange suffix for non-US markets."""
+    """Add exchange suffix for non-US markets.
+    
+    If a known US-only ticker is passed with an Indian market (NSE/BSE),
+    we intentionally skip the suffix so yfinance can resolve it correctly.
+    """
     symbol = symbol.upper().strip()
     if symbol.startswith("^"):
         return symbol
+    # If the symbol is already carrying a suffix, respect it
+    if symbol.endswith(".NS") or symbol.endswith(".BO"):
+        return symbol
+    # Don't append Indian suffixes to well-known US-only tickers
+    if symbol in _US_ONLY_SYMBOLS:
+        return symbol
     if market in ("NSE", "IN"):
-        return f"{symbol}.NS" if not symbol.endswith(".NS") else symbol
+        return f"{symbol}.NS"
     if market == "BSE":
-        return f"{symbol}.BO" if not symbol.endswith(".BO") else symbol
+        return f"{symbol}.BO"
     return symbol
 
 
@@ -84,4 +110,4 @@ def calculate_rsi(closes: list[float], period: int = 14) -> float | None:
     if avg_loss == 0:
         return 100.0
     rs = avg_gain / avg_loss
-    return round(100 - (100 / (1 + rs)), 2)
+    return float(round(100 - (100 / (1 + rs)), 2))

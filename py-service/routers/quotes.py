@@ -93,9 +93,32 @@ def get_quote(symbol: str, market: str = Query("US")):
     try:
         data = _build_quote(symbol, market)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"yfinance error: {str(e)}")
+        # Return a structured error instead of propagating a 502
+        return {
+            "symbol": symbol.upper(),
+            "market": market,
+            "yf_symbol": None,
+            "price": None,
+            "prev_close": None,
+            "open": None,
+            "day_high": None,
+            "day_low": None,
+            "change": None,
+            "change_pct": None,
+            "volume": None,
+            "market_cap": None,
+            "week52_high": None,
+            "week52_low": None,
+            "currency": "USD",
+            "logo_url": get_logo_data_url(symbol),
+            "data_available": False,
+            "error": str(e),
+            "cached": False,
+        }
 
-    cache.set("quote", cache_key, data)
+    # Don't cache responses with no price data
+    if data.get("price") is not None:
+        cache.set("quote", cache_key, data)
     return {**data, "cached": False}
 
 

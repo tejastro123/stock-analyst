@@ -6,7 +6,7 @@
   box-sizing: border-box;
   overflow-y: auto;
   gap: 12px;
-  background-color: #06060c;
+  background-color: var(--bg-primary, #06060c);
 }
 
 .backtest-layout {
@@ -27,11 +27,12 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0; /* Prevents flex children from overflowing */
 }
 
 .backtest-results-grid {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   height: 100%;
 }
@@ -42,18 +43,34 @@
   gap: 8px;
 }
 
+@media (max-width: 900px) {
+  .backtest-metrics-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .backtest-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .metric-card {
-  background: #11111b;
-  border: 1px solid #1f2937;
+  background: var(--bg-secondary, #11111b);
+  border: 1px solid var(--border-primary, #1f2937);
   padding: 10px;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: var(--font-mono, monospace);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.metric-card:hover {
+  border-color: var(--color-primary, #00ff88);
+  transform: translateY(-1px);
 }
 
 .metric-card-label {
   font-size: 8px;
-  color: #848e9c;
+  color: var(--text-muted, #848e9c);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .metric-card-value {
@@ -67,7 +84,7 @@
 }
 
 .trades-table-panel {
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
 }
 
@@ -77,17 +94,96 @@
 }
 
 .trades-table th, .trades-table td {
-  padding: 4px 6px;
+  padding: 6px 8px;
   font-size: 9px;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid var(--border-primary, #1f2937);
 }
 
 .trades-table th {
-  background-color: #11111b;
-  color: #848e9c;
+  background-color: var(--bg-secondary, #11111b);
+  color: var(--text-muted, #848e9c);
   text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.trades-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.02);
 }
 
 .trade-profit {
   font-weight: bold;
+}
+
+/* Optimization Grid Cards */
+.opt-card {
+  background: #11111b;
+  border: 1px solid #1f2937;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.opt-card:hover {
+  border-color: #00ff8880;
+  background: #151525;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.1);
+  transform: scale(1.02);
+}
+
+.tool-btn {
+  text-align: left;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.15s ease;
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tool-btn.active {
+  background: rgba(0, 255, 136, 0.06) !important;
+  border-color: #00ff88 !important;
+}
+
+/* Custom Scrollbar */
+.trades-table-panel::-webkit-scrollbar,
+.backtest-root::-webkit-scrollbar {
+  width: 4px;
+}
+.trades-table-panel::-webkit-scrollbar-track,
+.backtest-root::-webkit-scrollbar-track {
+  background: transparent;
+}
+.trades-table-panel::-webkit-scrollbar-thumb,
+.backtest-root::-webkit-scrollbar-thumb {
+  background: #2a2e39;
+  border-radius: 2px;
+}
+.trades-table-panel::-webkit-scrollbar-thumb:hover,
+.backtest-root::-webkit-scrollbar-thumb:hover {
+  background: #3f4556;
+}
+
+/* Printing styles for quant report export */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .backtest-main, .backtest-main * {
+    visibility: visible;
+  }
+  .backtest-main {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .backtest-sidebar, .terminal-sidebar, .terminal-topbar, .terminal-statusbar {
+    display: none !important;
+  }
 }

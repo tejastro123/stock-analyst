@@ -6,11 +6,14 @@ import TradingViewTickerTape from '../TradingViewTickerTape/TradingViewTickerTap
 import useMarketStore from '../../store/marketStore';
 import ErrorBoundary from '../ErrorBoundary';
 import './Terminal.css';
+import './Mobile.css';
 
 const NAV_ITEMS = [
   { path: '/dashboard',  label: 'DASH',      title: 'Dashboard' },
   { path: '/screener',   label: 'SCRN',      title: 'Screener' },
   { path: '/portfolio',  label: 'PORT',      title: 'Portfolio' },
+  { path: '/wealthos',   label: 'WLTH',      title: 'WealthOS' },
+  { path: '/enterprise', label: 'ENTP',      title: 'Enterprise' },
   { path: '/options',    label: 'OPT',       title: 'Options' },
   { path: '/charts',     label: 'CHRT',      title: 'Charts' },
   { path: '/crypto',     label: 'CRYP',      title: 'Crypto' },
@@ -20,9 +23,32 @@ const NAV_ITEMS = [
   { path: '/alerts',     label: 'ALRT',      title: 'Alerts' },
   { path: '/research',   label: 'RSCH',      title: 'Research' },
   { path: '/analytics',  label: 'RISK',      title: 'Analytics' },
-  { path: '/backtester', label: 'BKTS',      title: 'Backtester' },
+  { path: '/backtester', label: 'QNT',       title: 'Quant Engine' },
   { path: '/settings',   label: 'SETT',      title: 'Settings' },
 ];
+
+
+const playAlertSound = () => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const playBeep = (delay, freq) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + 0.3);
+      osc.start(audioCtx.currentTime + delay);
+      osc.stop(audioCtx.currentTime + delay + 0.35);
+    };
+    playBeep(0, 880);
+    playBeep(0.15, 1109);
+  } catch (e) {
+    console.warn('Audio Context failed to play alert sound:', e);
+  }
+};
 
 function TerminalLayout() {
   const user = useAuthStore((s) => s.user);
@@ -32,6 +58,7 @@ function TerminalLayout() {
   const now = new Date();
 
   const [theme, setTheme] = React.useState(document.documentElement.getAttribute('data-theme') || 'dark');
+  const [activeToasts, setActiveToasts] = React.useState([]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -71,11 +98,25 @@ function TerminalLayout() {
     let socket = null;
     let reconnectTimer = null;
     let retryCount = 0;
-    const MAX_RETRIES = 5;
+    let isDestroyed = false;
+    const MAX_RETRIES = 8;
 
     const connectGlobalSocket = () => {
+      if (isDestroyed) return;
       const token = localStorage.getItem('qd_access_token');
       if (!token) return;
+
+      // Close any stale socket before creating a new one
+      if (socket && socket.readyState !== WebSocket.CLOSED) {
+        socket.onclose = null; // Prevent triggering reconnect from old socket
+        socket.close();
+      }
+
+      // Don't reconnect when the tab is in the background to save resources
+      if (document.visibilityState === 'hidden') {
+        reconnectTimer = setTimeout(connectGlobalSocket, 5000);
+        return;
+      }
 
       const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${wsProto}//localhost:3001/ws?token=${token}`;
@@ -91,6 +132,23 @@ function TerminalLayout() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'ALERT_TRIGGERED') {
+            playAlertSound();
+            const toastId = Date.now();
+            const newToast = {
+              id: toastId,
+              symbol: data.alert.symbol,
+              message: data.alert.message || `${data.alert.symbol} crossed threshold of ${data.alert.threshold}`,
+              threshold: data.alert.threshold,
+              trigger_price: data.alert.trigger_price,
+              alert_type: data.alert.alert_type,
+            };
+            setActiveToasts(prev => [...prev, newToast]);
+
+            // Auto dismiss toast after 8 seconds
+            setTimeout(() => {
+              setActiveToasts(prev => prev.filter(t => t.id !== toastId));
+            }, 8000);
+
             if (Notification.permission === 'granted') {
               new Notification(`🔔 QuantDesk Triggered: ${data.alert.symbol}`, {
                 body: data.alert.message || `${data.alert.symbol} crossed threshold of ${data.alert.threshold}`
@@ -103,9 +161,10 @@ function TerminalLayout() {
       };
 
       socket.onclose = () => {
+        if (isDestroyed) return;
         console.log('🔌 Global Alert WebSocket closed.');
         if (retryCount < MAX_RETRIES) {
-          const delay = Math.min(1000 * Math.pow(2, retryCount), 15000);
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
           retryCount += 1;
           reconnectTimer = setTimeout(connectGlobalSocket, delay);
         }
@@ -116,13 +175,28 @@ function TerminalLayout() {
       };
     };
 
+    // Re-connect when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && (!socket || socket.readyState === WebSocket.CLOSED)) {
+        retryCount = 0;
+        connectGlobalSocket();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     connectGlobalSocket();
 
     return () => {
+      isDestroyed = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (socket) socket.close();
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
   }, []);
+
+  const dismissToast = (id) => {
+    setActiveToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   return (
     <div className="terminal-root">
@@ -239,6 +313,61 @@ function TerminalLayout() {
           US/NSE/BSE · USD · New York
         </div>
       </footer>
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}
+            title={item.title}
+            aria-label={item.title}
+          >
+            <span className="mobile-nav-label">{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+      {/* ── Live Alert Toasts Overlay ── */}
+      {activeToasts.length > 0 && (
+        <div className="alert-toast-container">
+          {activeToasts.map(toast => (
+            <div key={toast.id} className="alert-toast">
+              <div className="alert-toast-header">
+                <span className="alert-toast-title">
+                  🔔 PRICE ALERT TRIGGERED
+                </span>
+                <button className="alert-toast-close" onClick={() => dismissToast(toast.id)}>
+                  &times;
+                </button>
+              </div>
+              <div className="alert-toast-body">
+                <strong>{toast.symbol}</strong> went {toast.alert_type === 'price_above' ? 'above' : 'below'} {toast.threshold}!
+                <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                  Trigger Price: <span className="text-accent">{toast.trigger_price}</span>
+                </div>
+              </div>
+              <div className="alert-toast-actions">
+                <button 
+                  className="btn btn-ghost btn-sm font-mono" 
+                  style={{ height: '20px', padding: '0 6px', fontSize: '9px' }}
+                  onClick={() => {
+                    dismissToast(toast.id);
+                    navigate(`/charts?sym=${toast.symbol}`);
+                  }}
+                >
+                  VIEW CHART
+                </button>
+                <button 
+                  className="btn btn-primary btn-sm font-mono" 
+                  style={{ height: '20px', padding: '0 6px', fontSize: '9px' }}
+                  onClick={() => dismissToast(toast.id)}
+                >
+                  DISMISS
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

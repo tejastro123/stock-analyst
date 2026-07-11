@@ -234,6 +234,17 @@ router.get('/signals/:symbol', authenticate, async (req, res) => {
   }
 });
 
+// ── Indicators (Quant Engine Library) ──────────────────────────────────────
+router.get('/indicators/:symbol', authenticate, async (req, res) => {
+  try {
+    const { market = 'US' } = req.query;
+    const data = await pyFetch(`/indicators/${req.params.symbol}?market=${market}`);
+    res.json(data);
+  } catch (err) {
+    res.status(err.response?.status || 502).json({ error: err.message });
+  }
+});
+
 // ── ETF Peers & Details ────────────────────────────────────────────────────
 router.get('/etf/peers/:symbol', authenticate, async (req, res) => {
   try {
