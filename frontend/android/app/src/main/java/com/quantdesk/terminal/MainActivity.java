@@ -1,5 +1,0 @@
-package com.quantdesk.terminal;
-
-import com.getcapacitor.BridgeActivity;
-
-public class MainActivity extends BridgeActivity {}

@@ -6,14 +6,11 @@ import TradingViewTickerTape from '../TradingViewTickerTape/TradingViewTickerTap
 import useMarketStore from '../../store/marketStore';
 import ErrorBoundary from '../ErrorBoundary';
 import './Terminal.css';
-import './Mobile.css';
 
 const NAV_ITEMS = [
   { path: '/dashboard',  label: 'DASH',      title: 'Dashboard' },
   { path: '/screener',   label: 'SCRN',      title: 'Screener' },
   { path: '/portfolio',  label: 'PORT',      title: 'Portfolio' },
-  { path: '/wealthos',   label: 'WLTH',      title: 'WealthOS' },
-  { path: '/enterprise', label: 'ENTP',      title: 'Enterprise' },
   { path: '/options',    label: 'OPT',       title: 'Options' },
   { path: '/charts',     label: 'CHRT',      title: 'Charts' },
   { path: '/crypto',     label: 'CRYP',      title: 'Crypto' },
@@ -23,7 +20,7 @@ const NAV_ITEMS = [
   { path: '/alerts',     label: 'ALRT',      title: 'Alerts' },
   { path: '/research',   label: 'RSCH',      title: 'Research' },
   { path: '/analytics',  label: 'RISK',      title: 'Analytics' },
-  { path: '/backtester', label: 'QNT',       title: 'Quant Engine' },
+  { path: '/backtester', label: 'BKTS',      title: 'Backtester' },
   { path: '/settings',   label: 'SETT',      title: 'Settings' },
 ];
 
@@ -58,7 +55,6 @@ function TerminalLayout() {
   const now = new Date();
 
   const [theme, setTheme] = React.useState(document.documentElement.getAttribute('data-theme') || 'dark');
-  const [activeToasts, setActiveToasts] = React.useState([]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -98,11 +94,9 @@ function TerminalLayout() {
     let socket = null;
     let reconnectTimer = null;
     let retryCount = 0;
-    let isDestroyed = false;
-    const MAX_RETRIES = 8;
+    const MAX_RETRIES = 5;
 
     const connectGlobalSocket = () => {
-      if (isDestroyed) return;
       const token = localStorage.getItem('qd_access_token');
       if (!token) return;
 
@@ -187,16 +181,11 @@ function TerminalLayout() {
     connectGlobalSocket();
 
     return () => {
-      isDestroyed = true;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (socket) socket.close();
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
   }, []);
-
-  const dismissToast = (id) => {
-    setActiveToasts(prev => prev.filter(t => t.id !== id));
-  };
 
   return (
     <div className="terminal-root">
@@ -313,61 +302,7 @@ function TerminalLayout() {
           US/NSE/BSE · USD · New York
         </div>
       </footer>
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}
-            title={item.title}
-            aria-label={item.title}
-          >
-            <span className="mobile-nav-label">{item.label}</span>
-          </NavLink>
-        ))}
-      </nav>
       {/* ── Live Alert Toasts Overlay ── */}
-      {activeToasts.length > 0 && (
-        <div className="alert-toast-container">
-          {activeToasts.map(toast => (
-            <div key={toast.id} className="alert-toast">
-              <div className="alert-toast-header">
-                <span className="alert-toast-title">
-                  🔔 PRICE ALERT TRIGGERED
-                </span>
-                <button className="alert-toast-close" onClick={() => dismissToast(toast.id)}>
-                  &times;
-                </button>
-              </div>
-              <div className="alert-toast-body">
-                <strong>{toast.symbol}</strong> went {toast.alert_type === 'price_above' ? 'above' : 'below'} {toast.threshold}!
-                <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>
-                  Trigger Price: <span className="text-accent">{toast.trigger_price}</span>
-                </div>
-              </div>
-              <div className="alert-toast-actions">
-                <button 
-                  className="btn btn-ghost btn-sm font-mono" 
-                  style={{ height: '20px', padding: '0 6px', fontSize: '9px' }}
-                  onClick={() => {
-                    dismissToast(toast.id);
-                    navigate(`/charts?sym=${toast.symbol}`);
-                  }}
-                >
-                  VIEW CHART
-                </button>
-                <button 
-                  className="btn btn-primary btn-sm font-mono" 
-                  style={{ height: '20px', padding: '0 6px', fontSize: '9px' }}
-                  onClick={() => dismissToast(toast.id)}
-                >
-                  DISMISS
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

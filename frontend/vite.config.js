@@ -5,9 +5,6 @@ import path from 'path';
 export default defineConfig({
   base: './',
   plugins: [react()],
-  build: {
-    target: 'es2018',
-  },
   resolve: {
     alias: {
       '@wealthos': path.resolve(__dirname, '../wealthos/frontend'),
