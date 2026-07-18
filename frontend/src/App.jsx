@@ -9,7 +9,6 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import ScreenerPage from './pages/Screener/ScreenerPage';
 import ChartsPage from './pages/Charts/ChartsPage';
 import PortfolioPage from './pages/Portfolio/PortfolioPage';
-import PlaceholderPage from './components/PlaceholderPage';
 import ResearchPage from './pages/Research/ResearchPage';
 
 import AlertsPage from './pages/Alerts/AlertsPage';

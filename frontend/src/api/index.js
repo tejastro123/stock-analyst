@@ -52,8 +52,8 @@ export const marketApi = {
 
   // Market Metrics & Breadth
   getEarnings: () => api.get('/market/metrics/earnings'),
-  getBreadth: () => api.get('/market/metrics/breadth'),
-  getMovers: () => api.get('/market/metrics/movers'),
+  getBreadth: (market = 'US') => api.get(`/market/metrics/breadth?market=${market}`),
+  getMovers: (market = 'US') => api.get(`/market/metrics/movers?market=${market}`),
 
   // Health
   pyHealth: () => api.get('/market/py-health'),

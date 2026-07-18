@@ -55,13 +55,11 @@ function AlertsPage() {
     ws.onopen = () => {
       setWsStatus('CONNECTED');
       retryCount.current = 0;
-      console.log('🔌 WebSocket connection established.');
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Received socket event:', data);
         if (data.type === 'ALERT_TRIGGERED') {
           setNotifications(prev => [data.alert, ...prev]);
           fetchAlerts();
@@ -78,14 +76,10 @@ function AlertsPage() {
 
     ws.onclose = () => {
       setWsStatus('DISCONNECTED');
-      console.log('🔌 WebSocket connection closed.');
       if (retryCount.current < MAX_RETRIES) {
         const delay = Math.min(1000 * Math.pow(2, retryCount.current), 30000);
         retryCount.current += 1;
-        console.log(`🔄 Reconnecting in ${delay / 1000}s (attempt ${retryCount.current}/${MAX_RETRIES})...`);
         reconnectTimer.current = setTimeout(connectWebSocket, delay);
-      } else {
-        console.warn('🚫 Max WS reconnect attempts reached. Staying offline.');
       }
     };
 

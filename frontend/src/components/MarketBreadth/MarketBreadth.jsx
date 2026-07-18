@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { marketApi } from '../../api';
+import useMarketStore from '../../store/marketStore';
 import './MarketBreadth.css';
 
 function MarketBreadth() {
+  const { activeMarket } = useMarketStore();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    marketApi.getBreadth()
+    setLoading(true);
+    marketApi.getBreadth(activeMarket)
       .then(res => setData(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [activeMarket]);
 
   if (loading) return (
     <div className="breadth-loading font-mono text-xs text-muted">

@@ -12,7 +12,8 @@ const NAV_ITEMS = [
   { path: '/screener',   label: 'SCRN',      title: 'Screener' },
   { path: '/portfolio',  label: 'PORT',      title: 'Portfolio' },
   { path: '/charts',     label: 'CHRT',      title: 'Charts' },
-
+  { path: '/wealthos',   label: 'WTH',       title: 'WealthOS' },
+  { path: '/enterprise', label: 'ENTP',      title: 'Enterprise' },
   { path: '/news',       label: 'NEWS',      title: 'News' },
   { path: '/alerts',     label: 'ALRT',      title: 'Alerts' },
   { path: '/research',   label: 'RSCH',      title: 'Research' },
@@ -112,13 +113,13 @@ function TerminalLayout() {
       }
 
       const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProto}//localhost:3001/ws?token=${token}`;
+      const host = window.location.host;
+      const wsUrl = `${wsProto}//${host}/ws?token=${token}`;
 
       socket = new WebSocket(wsUrl);
 
       socket.onopen = () => {
         retryCount = 0;
-        console.log('🔌 Global Alert WebSocket connected.');
       };
 
       socket.onmessage = (event) => {
@@ -155,7 +156,6 @@ function TerminalLayout() {
 
       socket.onclose = () => {
         if (isDestroyed) return;
-        console.log('🔌 Global Alert WebSocket closed.');
         if (retryCount < MAX_RETRIES) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
           retryCount += 1;

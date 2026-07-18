@@ -133,20 +133,22 @@ router.get('/metrics/earnings', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/market/metrics/breadth
+// GET /api/market/metrics/breadth?market=US|NSE|BSE
 router.get('/metrics/breadth', authenticate, async (req, res) => {
   try {
-    const data = await pyFetch('/metrics/breadth');
+    const { market = 'US' } = req.query;
+    const data = await pyFetch(`/metrics/breadth?market=${market}`);
     res.json(data);
   } catch (err) {
     res.status(err.response?.status || 502).json({ error: err.message });
   }
 });
 
-// GET /api/market/metrics/movers
+// GET /api/market/metrics/movers?market=US|NSE|BSE
 router.get('/metrics/movers', authenticate, async (req, res) => {
   try {
-    const data = await pyFetch('/metrics/movers');
+    const { market = 'US' } = req.query;
+    const data = await pyFetch(`/metrics/movers?market=${market}`);
     res.json(data);
   } catch (err) {
     res.status(err.response?.status || 502).json({ error: err.message });

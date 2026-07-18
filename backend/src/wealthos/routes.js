@@ -603,16 +603,62 @@ router.get('/analytics/calculate', authenticate, async (req, res) => {
     );
 
     const response = await axios.post(`${PY_URL}/wealthos/analytics/calculate`, {
-      assets,
-      transactions: txResult.rows
-    }, { timeout: 15000 });
+      assets: sanitizeAssets(assets),
+      transactions: sanitizeTransactions(txResult.rows)
+    }, { timeout: 30000 });
 
     res.json(response.data);
   } catch (err) {
-    console.error('Error in WealthOS analytics calculation:', err.message);
+    console.error('Error in WealthOS analytics calculation:', err.code, err.message);
+    if (err.response?.data) {
+      console.error('Python service error body:', JSON.stringify(err.response.data).slice(0, 500));
+    }
+    if (err.code === 'ECONNRESET' || err.code === 'ECONNABORTED') {
+      return res.status(502).json({
+        error: 'Python analytics service timed out or closed connection. Try again with fewer assets.'
+      });
+    }
     res.status(500).json({ error: 'Failed to calculate advanced analytics' });
   }
 });
+
+// ── Helpers: sanitize data for downstream py-service calls ──────────────────
+function sanitizeAssets(assets) {
+  return assets.map(a => ({
+    name: a.name,
+    symbol: a.symbol,
+    asset_class: a.asset_class,
+    quantity: Number(a.quantity),
+    avg_price: Number(a.avg_price),
+    current_price: Number(a.current_price),
+    currency: a.currency || 'INR',
+    exchange: a.exchange || null,
+    broker: a.broker || null,
+    fees: Number(a.fees || 0),
+    taxes: Number(a.taxes || 0),
+    dividend: Number(a.dividend || 0),
+    notes: a.notes || null,
+    tags: Array.isArray(a.tags) ? a.tags : (typeof a.tags === 'string' ? JSON.parse(a.tags) : []),
+    attachments: Array.isArray(a.attachments) ? a.attachments : (typeof a.attachments === 'string' ? JSON.parse(a.attachments) : [])
+  })) || [];
+}
+
+function sanitizeTransactions(transactions) {
+  return (transactions || []).map(t => ({
+    id: String(t.id),
+    transaction_type: t.transaction_type,
+    symbol: t.symbol,
+    asset_class: t.asset_class,
+    quantity: Number(t.quantity),
+    price: Number(t.price),
+    amount: Number(t.amount),
+    fees: Number(t.fees || 0),
+    taxes: Number(t.taxes || 0),
+    brokerage: Number(t.brokerage || 0),
+    date: t.date instanceof Date ? t.date.toISOString() : String(t.date),
+    notes: t.notes || null
+  }));
+}
 
 router.get('/analytics/stress-test', authenticate, async (req, res) => {
   try {
@@ -621,7 +667,10 @@ router.get('/analytics/stress-test', authenticate, async (req, res) => {
       return res.json({ scenarios: [] });
     }
 
-    const response = await axios.post(`${PY_URL}/wealthos/analytics/stress-test`, { assets }, { timeout: 15000 });
+    const response = await axios.post(`${PY_URL}/wealthos/analytics/stress-test`,
+      { assets: sanitizeAssets(assets) },
+      { timeout: 30000 }
+    );
     res.json(response.data);
   } catch (err) {
     console.error('Error in WealthOS stress-test calculation:', err.message);
@@ -637,7 +686,10 @@ router.get('/analytics/monte-carlo', authenticate, async (req, res) => {
     }
 
     const simulations = req.query.simulations ? parseInt(req.query.simulations) : 1000;
-    const response = await axios.post(`${PY_URL}/wealthos/analytics/monte-carlo?simulations=${simulations}`, { assets }, { timeout: 15000 });
+    const response = await axios.post(`${PY_URL}/wealthos/analytics/monte-carlo?simulations=${simulations}`,
+      { assets: sanitizeAssets(assets) },
+      { timeout: 30000 }
+    );
     res.json(response.data);
   } catch (err) {
     console.error('Error in WealthOS monte-carlo calculation:', err.message);
@@ -652,7 +704,10 @@ router.get('/analytics/correlation', authenticate, async (req, res) => {
       return res.json({ matrix: {}, assets: [] });
     }
 
-    const response = await axios.post(`${PY_URL}/wealthos/analytics/correlation`, { assets }, { timeout: 15000 });
+    const response = await axios.post(`${PY_URL}/wealthos/analytics/correlation`,
+      { assets: sanitizeAssets(assets) },
+      { timeout: 30000 }
+    );
     res.json(response.data);
   } catch (err) {
     console.error('Error in WealthOS correlation calculation:', err.message);
@@ -685,8 +740,8 @@ router.get('/ai/advisory', authenticate, async (req, res) => {
         [req.user.id]
       );
       const pyResponse = await axios.post(`${PY_URL}/wealthos/analytics/calculate`, {
-        assets,
-        transactions: txResult.rows
+        assets: sanitizeAssets(assets),
+        transactions: sanitizeTransactions(txResult.rows)
       }, { timeout: 15000 });
       analyticsData = pyResponse.data;
     } catch (err) {
@@ -915,7 +970,7 @@ Return only JSON. Do not include markdown formatting or extra text.
         prompt: prompt,
         stream: false,
         format: "json"
-      }, { timeout: 15000 });
+      }, { timeout: 60000 });
       responseJson = cleanAndParseJSON(ollamaRes.data.response);
       
       // Inject calculated scores into response
@@ -1109,7 +1164,7 @@ Return only the raw JSON. Do not include markdown formatting, backticks, or extr
         prompt: prompt,
         stream: false,
         format: "json"
-      }, { timeout: 15000 });
+      }, { timeout: 60000 });
 
       responseJson = cleanAndParseJSON(ollamaRes.data.response);
     } catch (ollamaErr) {

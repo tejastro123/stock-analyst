@@ -4,7 +4,7 @@ import yfinance as yf
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import cache
 from routers import screener
-from utils import safe_float, safe_int
+from utils import safe_float, safe_int, normalize_symbol
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -56,19 +56,22 @@ def get_earnings_calendar():
 
 
 @router.get("/breadth")
-def get_market_breadth():
-    cached = cache.get("screener", "metrics:breadth")
+def get_market_breadth(market: str = "US"):
+    is_india = market in ("NSE", "BSE", "IN")
+    cache_key = f"metrics:breadth:{market}"
+    cached = cache.get("screener", cache_key)
     if cached:
         return {**cached, "cached": True}
 
-    # Breadth computed from US Universe
-    universe = screener.US_UNIVERSE
+    universe = screener.NSE_UNIVERSE if is_india else screener.US_UNIVERSE
     raw_data = []
 
     # Fast fetch info for breadth (last_price, previous_close, ma50, ma200)
+    mkt = "NSE" if is_india else "US"
+
     def fetch_breadth_data(sym):
         try:
-            t = yf.Ticker(sym)
+            t = yf.Ticker(normalize_symbol(sym, mkt))
             fi = t.fast_info
             info = t.info
             price = safe_float(getattr(fi, "last_price", None))
@@ -111,22 +114,25 @@ def get_market_breadth():
         "ad_ratio": round(advancing / max(declining, 1), 2),
     }
 
-    cache.set("screener", "metrics:breadth", out)  # Cache in screener pool (5m TTL)
+    cache.set("screener", cache_key, out)  # Cache in screener pool (5m TTL)
     return {**out, "cached": False}
 
 
 @router.get("/movers")
-def get_top_movers():
-    cached = cache.get("screener", "metrics:movers")
+def get_top_movers(market: str = "US"):
+    is_india = market in ("NSE", "BSE", "IN")
+    cache_key = f"metrics:movers:{market}"
+    cached = cache.get("screener", cache_key)
     if cached:
         return {**cached, "cached": True}
 
-    universe = screener.US_UNIVERSE
+    universe = screener.NSE_UNIVERSE if is_india else screener.US_UNIVERSE
+    mkt = "NSE" if is_india else "US"
     raw_data = []
 
     def fetch_mover_data(sym):
         try:
-            t = yf.Ticker(sym)
+            t = yf.Ticker(normalize_symbol(sym, mkt))
             fi = t.fast_info
             price = safe_float(getattr(fi, "last_price", None))
             prev_close = safe_float(getattr(fi, "previous_close", None))
@@ -164,5 +170,5 @@ def get_top_movers():
         "movers": movers[:6]
     }
 
-    cache.set("screener", "metrics:movers", out)  # Cache in screener pool (5m TTL)
+    cache.set("screener", cache_key, out)  # Cache in screener pool (5m TTL)
     return {**out, "cached": False}

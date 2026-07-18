@@ -5,7 +5,20 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
+import math
 import json
+
+def _clean_json(obj):
+    """Replace NaN/Inf with null/0 for JSON compliance."""
+    if isinstance(obj, dict):
+        return {k: _clean_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_clean_json(v) for v in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return 0.0
+        return obj
+    return obj
 
 router = APIRouter(prefix="/wealthos/analytics", tags=["wealthos_analytics"])
 
@@ -255,6 +268,16 @@ def get_ticker_symbol(symbol: str, asset_class: str) -> str:
 
 @router.post("/calculate")
 def calculate_wealthos_analytics(req: AnalyticsRequest):
+    try:
+        result = _calculate_inner(req)
+        return _clean_json(result)
+    except Exception as e:
+        print(f"ERROR in calculate_wealthos_analytics: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Analytics calculation failed: {str(e)}")
+
+def _calculate_inner(req: AnalyticsRequest):
     if not req.assets:
         return {
             "summary": {},
@@ -380,7 +403,8 @@ def calculate_wealthos_analytics(req: AnalyticsRequest):
     if transactions:
         tx_dates = [pd.to_datetime(tx.date) for tx in transactions]
         oldest_date = min(tx_dates)
-        years = (pd.Timestamp.now() - oldest_date).days / 365.25
+        now = pd.Timestamp.now(tz='UTC') if oldest_date.tz is not None else pd.Timestamp.now()
+        years = (now - oldest_date).days / 365.25
         if years > 0.1 and net_invested > 0:
             cagr = float(((total_wealth / net_invested) ** (1 / years) - 1) * 100)
 
@@ -395,14 +419,17 @@ def calculate_wealthos_analytics(req: AnalyticsRequest):
 
     # XIRR & Money Weighted Return
     cash_flows = []
+    now_ts = pd.Timestamp.now(tz='UTC')
     for tx in transactions:
         tx_date = pd.to_datetime(tx.date)
+        if tx_date.tz is None:
+            tx_date = tx_date.tz_localize('UTC')
         if tx.transaction_type == 'buy':
             cash_flows.append((tx_date, -float(tx.amount + tx.fees + tx.taxes + tx.brokerage)))
         elif tx.transaction_type == 'sell':
             cash_flows.append((tx_date, float(tx.amount - tx.fees - tx.taxes - tx.brokerage)))
     
-    cash_flows.append((pd.Timestamp.now(), float(total_wealth)))
+    cash_flows.append((now_ts, float(total_wealth)))
     
     xirr_value = 0.0
     try:

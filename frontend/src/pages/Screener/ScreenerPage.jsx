@@ -317,9 +317,7 @@ function ScreenerPage() {
       Object.keys(payload).forEach((k) => {
         if (payload[k] === null || payload[k] === '') delete payload[k];
       });
-      console.log('[Screener] Sending payload:', payload);
       const res = await marketApi.runScreener(payload);
-      console.log('[Screener] Response status:', res.status, 'count:', res.data?.count);
       setResults(res.data.results || []);
       setMeta(res.data);
       setRan(true);
