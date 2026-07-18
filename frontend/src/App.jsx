@@ -8,13 +8,10 @@ import TerminalLayout from './components/Terminal/TerminalLayout';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import ScreenerPage from './pages/Screener/ScreenerPage';
 import ChartsPage from './pages/Charts/ChartsPage';
-import CryptoPage from './pages/Crypto/CryptoPage';
-import ForexPage from './pages/Forex/ForexPage';
 import PortfolioPage from './pages/Portfolio/PortfolioPage';
-import OptionsPage from './pages/Options/OptionsPage';
 import PlaceholderPage from './components/PlaceholderPage';
 import ResearchPage from './pages/Research/ResearchPage';
-import MacroPage from './pages/Macro/MacroPage';
+
 import AlertsPage from './pages/Alerts/AlertsPage';
 import BacktesterPage from './pages/Backtester/BacktesterPage';
 import NewsPage from './pages/News/NewsPage';
@@ -79,12 +76,7 @@ function App() {
           <Route path="portfolio"  element={<PortfolioPage />} />
           <Route path="wealthos"   element={<WealthOSPage />} />
           <Route path="enterprise" element={<EnterprisePage />} />
-          <Route path="options"    element={<OptionsPage />} />
-
           <Route path="charts"     element={<ChartsPage />} />
-          <Route path="crypto"     element={<CryptoPage />} />
-          <Route path="forex"      element={<ForexPage />} />
-          <Route path="macro"      element={<MacroPage />} />
           <Route path="news"       element={<NewsPage />} />
           <Route path="alerts"     element={<AlertsPage />} />
           <Route path="research"   element={<ResearchPage />} />

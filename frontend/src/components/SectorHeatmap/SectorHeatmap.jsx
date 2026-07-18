@@ -1,14 +1,12 @@
-import React from 'react';
-import useMarketStore from '../../store/marketStore';
+import React, { useState } from 'react';
 import TradingViewIFrameWidget from '../TradingViewIFrameWidget';
 
 function SectorHeatmap() {
-  const { activeMarket } = useMarketStore();
-  const isInd = activeMarket === 'NSE' || activeMarket === 'BSE';
+  const [market, setMarket] = useState('US');
 
   const config = {
     "exchanges": [],
-    "dataSource": isInd ? "NIFTY50" : "SPX500",
+    "dataSource": market === 'US' ? "SPX500" : "NIFTY50",
     "grouping": "sector",
     "sizes": "market_cap",
     "hasTopBar": false,
@@ -24,15 +22,32 @@ function SectorHeatmap() {
   };
 
   return (
-    <div key={activeMarket} style={{ height: "400px", width: "100%" }} id="sector-heatmap">
-      <TradingViewIFrameWidget
-        scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
-        config={config}
-        height="400px"
-      />
+    <div>
+      <div style={{ display: 'flex', gap: '4px', padding: '0 0 8px 0' }}>
+        <button
+          className={`btn btn-sm font-mono ${market === 'US' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '10px', padding: '2px 8px', height: '24px' }}
+          onClick={() => setMarket('US')}
+        >
+          🇺🇸 US
+        </button>
+        <button
+          className={`btn btn-sm font-mono ${market === 'IN' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '10px', padding: '2px 8px', height: '24px' }}
+          onClick={() => setMarket('IN')}
+        >
+          🇮🇳 INDIA
+        </button>
+      </div>
+      <div key={market} style={{ height: "400px", width: "100%" }} id="sector-heatmap">
+        <TradingViewIFrameWidget
+          scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
+          config={config}
+          height="400px"
+        />
+      </div>
     </div>
   );
 }
 
 export default SectorHeatmap;
-

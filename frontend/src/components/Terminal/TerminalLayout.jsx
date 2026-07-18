@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { userApi } from '../../api';
@@ -11,11 +11,8 @@ const NAV_ITEMS = [
   { path: '/dashboard',  label: 'DASH',      title: 'Dashboard' },
   { path: '/screener',   label: 'SCRN',      title: 'Screener' },
   { path: '/portfolio',  label: 'PORT',      title: 'Portfolio' },
-  { path: '/options',    label: 'OPT',       title: 'Options' },
   { path: '/charts',     label: 'CHRT',      title: 'Charts' },
-  { path: '/crypto',     label: 'CRYP',      title: 'Crypto' },
-  { path: '/forex',      label: 'FX',        title: 'Forex' },
-  { path: '/macro',      label: 'MCRO',      title: 'Macro' },
+
   { path: '/news',       label: 'NEWS',      title: 'News' },
   { path: '/alerts',     label: 'ALRT',      title: 'Alerts' },
   { path: '/research',   label: 'RSCH',      title: 'Research' },
@@ -55,6 +52,7 @@ function TerminalLayout() {
   const now = new Date();
 
   const [theme, setTheme] = React.useState(document.documentElement.getAttribute('data-theme') || 'dark');
+  const [activeToasts, setActiveToasts] = useState([]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -94,6 +92,7 @@ function TerminalLayout() {
     let socket = null;
     let reconnectTimer = null;
     let retryCount = 0;
+    let isDestroyed = false;
     const MAX_RETRIES = 5;
 
     const connectGlobalSocket = () => {
@@ -181,6 +180,7 @@ function TerminalLayout() {
     connectGlobalSocket();
 
     return () => {
+      isDestroyed = true;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (socket) socket.close();
       if (reconnectTimer) clearTimeout(reconnectTimer);

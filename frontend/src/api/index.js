@@ -42,18 +42,13 @@ export const marketApi = {
   getFundamentals: (symbol, market = 'US') =>
     api.get(`/market/fundamentals/${symbol}?market=${market}`),
 
-  // Options
-  getOptions: (symbol, market = 'US', expiry = null) => {
-    const q = expiry ? `?market=${market}&expiry=${expiry}` : `?market=${market}`;
-    return api.get(`/market/options/${symbol}${q}`);
-  },
 
   // Screener
   runScreener: (filters) => api.post('/market/screener', filters),
   getUniverse: (market = 'US') => api.get(`/market/universe?market=${market}`),
 
   // Sector heatmap
-  getSectorHeatmap: () => api.get('/market/sector/heatmap'),
+  getSectorHeatmap: (market = 'US') => api.get(`/market/sector/heatmap?market=${market}`),
 
   // Market Metrics & Breadth
   getEarnings: () => api.get('/market/metrics/earnings'),
@@ -66,10 +61,6 @@ export const marketApi = {
   // Backtest
   runBacktest: (data) => api.post('/market/backtest', data),
 
-  // Macro
-  getMacroCurve: () => api.get('/market/macro/curve'),
-  getMacroSeries: (seriesId, calculateYoY = false) => api.get(`/market/macro/series/${seriesId}?calculate_yoy=${calculateYoY}`),
-  searchMacro: (query) => api.get(`/market/macro/search?query=${encodeURIComponent(query)}`),
   getNews: (symbol, market = 'US') => api.get(`/market/news/${symbol}?market=${market}`),
   getHistoricalRisk: (positions) => api.post('/market/risk/historical', { positions }),
 

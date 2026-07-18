@@ -712,9 +712,9 @@ function DashboardPage() {
           <div className="panel" id="panel-heatmap" style={{ flexShrink: 0 }}>
             <div className="panel-header">
               <span className="panel-title">Sector Heatmap</span>
-              <span className="badge badge-amber font-mono">ETFs</span>
+              <span className="badge badge-amber font-mono">MARKET MAP</span>
             </div>
-            <div className="panel-body">
+            <div className="panel-body" style={{ padding: '10px' }}>
               <SectorHeatmap />
             </div>
           </div>

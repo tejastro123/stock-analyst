@@ -112,10 +112,11 @@ router.get('/universe', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/market/sector/heatmap
+// GET /api/market/sector/heatmap?market=US|NSE|BSE
 router.get('/sector/heatmap', authenticate, async (req, res) => {
   try {
-    const data = await pyFetch('/sector/heatmap');
+    const { market = 'US' } = req.query;
+    const data = await pyFetch(`/sector/heatmap?market=${market}`);
     res.json(data);
   } catch (err) {
     res.status(err.response?.status || 502).json({ error: err.message });
